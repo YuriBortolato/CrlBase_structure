@@ -16,14 +16,14 @@ public class ProdutoService {
     private final ProdutoRepository repository;
 
     public ProdutoResponseDTO criar(ProdutoDTO dto) {
-        if (repository.existsByName(dto.getName())) {
-            throw new RuntimeException("Produto já cadastrado: " + dto.getName());
+        if (repository.existsByNome(dto.getNome())) {
+            throw new RuntimeException("Produto já cadastrado: " + dto.getNome());
         }
 
-        Produto Produto = new Produto(null, dto.getName(), dto.getPrice(), dto.getDescription());
+        Produto Produto = new Produto(null, dto.getNome(), dto.getPreco(), dto.getDescricao());
         Produto salvo = repository.save(Produto);
 
-        return new ProdutoResponseDTO(salvo.getId(), salvo.getName(), salvo.getPrice(), salvo.getDescription());
+        return new ProdutoResponseDTO(salvo.getId(), salvo.getNome(), salvo.getPreco(), salvo.getDescricao());
     }
 
     public List<Produto> listarTodos() {
