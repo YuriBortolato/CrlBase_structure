@@ -1,10 +1,10 @@
 package com.apirest.api.service;
 
-import com.apirest.api.dto.FuncionarioDTO;
-import com.apirest.api.dto.FuncionarioResponseDTO;
+import com.apirest.api.dto.*;
 import com.apirest.api.entity.Funcionario;
 import com.apirest.api.repository.FuncionarioRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -14,16 +14,42 @@ import java.util.List;
 public class FuncionarioService {
 
     private final FuncionarioRepository repository;
+    private final PasswordEncoder passwordEncoder;
 
     public FuncionarioResponseDTO criar(FuncionarioDTO dto) {
-        if (repository.existsByEmail(dto.getEmail())) {
-            throw new RuntimeException("Email já cadastrado: " + dto.getEmail());
-        }
 
-        Funcionario funcionario = new Funcionario(null, dto.getEmail(), dto.getNome(), dto.getSenha());
+        // 🔎 Validação de duplicidade
+        if (repository.existsByEmail(dto.getEmail()))
+            throw new RuntimeException("E-mail já cadastrado.");
+        if (repository.existsByCpf(dto.getCpf()))
+            throw new RuntimeException("CPF já cadastrado.");
+        if (repository.existsByLogin(dto.getLogin()))
+            throw new RuntimeException("Login já cadastrado.");
+
+        // 🔐 Criptografa a senha
+        String senhaCriptografada = passwordEncoder.encode(dto.getSenha());
+
+        Funcionario funcionario = Funcionario.builder()
+                .cargo(dto.getCargo())
+                .nomeCompleto(dto.getNomeCompleto())
+                .cpf(dto.getCpf())
+                .email(dto.getEmail())
+                .telefone(dto.getTelefone())
+                .login(dto.getLogin())
+                .senhaCriptografada(senhaCriptografada)
+                .build();
+
         Funcionario salvo = repository.save(funcionario);
 
-        return new FuncionarioResponseDTO(salvo.getId(), salvo.getEmail(), salvo.getNome());
+        return new FuncionarioResponseDTO(
+                salvo.getIdFuncionario(),
+                salvo.getCargo(),
+                salvo.getNomeCompleto(),
+                salvo.getCpf(),
+                salvo.getEmail(),
+                salvo.getTelefone(),
+                salvo.getLogin()
+        );
     }
 
     public List<Funcionario> listarTodos() {
@@ -32,6 +58,6 @@ public class FuncionarioService {
 
     public Funcionario buscarPorId(Long id) {
         return repository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Funcionário não encontrado com id " + id));
+                .orElseThrow(() -> new RuntimeException("Funcionário não encontrado."));
     }
 }
