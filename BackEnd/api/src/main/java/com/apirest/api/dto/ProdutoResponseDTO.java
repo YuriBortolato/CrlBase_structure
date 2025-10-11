@@ -6,8 +6,12 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ProdutoResponseDTO {
-    private Long id;
+    private Long idProduto;
     private String nome;
-    private Double preco;
     private String descricao;
+    private String categoria;
+    private Double valorVenda;
+    private Integer quantidadeEmEstoque;
+    private String statusEstoque; // "Esgotado", "Quase Esgotado", "Disponível"
 }
+
