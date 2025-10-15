@@ -1,4 +1,4 @@
 package com.apirest.api.dto;
 
-public class VendaDto {
+public class VendaDTO {
 }

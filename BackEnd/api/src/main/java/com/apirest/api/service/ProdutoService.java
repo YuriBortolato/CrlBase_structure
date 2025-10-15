@@ -1,18 +1,11 @@
 package com.apirest.api.service;
 
-import com.apirest.api.dto.ProdutoDTO;
-import com.apirest.api.dto.ProdutoResponseDTO;
-import com.apirest.api.entity.Produto;
-import com.apirest.api.repository.ProdutoRepository;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-
-
 import com.apirest.api.dto.*;
 import com.apirest.api.entity.*;
 import com.apirest.api.repository.*;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
@@ -27,10 +20,10 @@ public class ProdutoService {
     private final FuncionarioRepository funcionarioRepository;
 
     // cargos permitidos para CRIAR produto
-    private static final Set<Cargo> PERMISSAO_CRIAR = Set.of(Cargo.DONO, Cargo.GERENTE, Cargo.LIDER_VENDA);
+    private static final Set<Cargo> PERMISSAO_CRIAR = Set.of(Cargo.DONO, Cargo.GERENTE, Cargo.LIDER_VENDA, Cargo.ADMIN );
 
     // cargos permitidos para EDITAR (nome, descricao, categoria)
-    private static final Set<Cargo> PERMISSAO_EDITAR = Set.of(Cargo.DONO, Cargo.GERENTE, Cargo.LIDER_VENDA,
+    private static final Set<Cargo> PERMISSAO_EDITAR = Set.of(Cargo.DONO, Cargo.GERENTE, Cargo.LIDER_VENDA, Cargo.ADMIN,
             Cargo.RECEPCIONISTA, Cargo.RECEPCIONISTA_TESTE);
 
     @Transactional
@@ -42,11 +35,11 @@ public class ProdutoService {
             throw new RuntimeException("Permissão negada: cargo não autorizado a cadastrar produto");
         }
 
-// normalizar nome e descrição antes de qualquer uso
+        // normalizar nome e descrição antes de qualquer uso
         String nomeNormalizado = dto.getNome().trim().toUpperCase();
         String descricaoNormalizada = dto.getDescricao().trim().toUpperCase();
 
-// verificar duplicidade já com nome normalizado
+        // verificar duplicidade já com nome normalizado
         if (produtoRepository.existsByNome(nomeNormalizado)) {
             throw new RuntimeException("Produto com este nome já existe");
         }
@@ -119,7 +112,7 @@ public class ProdutoService {
         return dto;
     }
 
-    // visão pública (pode usar a mesma DTO, mas aqui você poderia ocultar custo por exemplo)
+    // visão pública (pode usar a mesma DTO, mas aqui você poderia ocultar custo, por exemplo)
     private ProdutoResponseDTO toResponseDTOPublicView(Produto p) {
         // Retorna nome, descrição, categoria, valorVenda, quantidade e status
         return toResponseDTO(p);
