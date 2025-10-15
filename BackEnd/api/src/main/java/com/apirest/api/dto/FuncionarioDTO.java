@@ -21,8 +21,8 @@ public class FuncionarioDTO {
     @CPF(message = "CPF inválido")
     private String cpf;
 
-    @Email(message = "O e-mail deve ser válido.")
     @NotBlank(message = "O e-mail é obrigatório.")
+    @Email(message = "O e-mail deve ser válido.")
     private String email;
 
     @NotBlank(message = "O telefone é obrigatório.")
@@ -34,5 +34,6 @@ public class FuncionarioDTO {
     private String login;
 
     @NotBlank(message = "A senha é obrigatória.")
+    @Size(min = 6, message = "Senha deve ter no mínimo 6 caracteres")
     private String senha;
 }

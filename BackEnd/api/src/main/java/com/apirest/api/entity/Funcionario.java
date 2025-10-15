@@ -37,7 +37,7 @@ public class Funcionario {
     private String email;
 
     @NotBlank(message = "O telefone é obrigatório.")
-    @Pattern(regexp = "^\\d{11}$", message = "Telefone deve ter 11 dígitos numéricos")
+    @Pattern(regexp = "^\\+?\\d{10,15}$", message = "O telefone deve conter apenas números e ter entre 10 e 15 dígitos.")
     @Column(nullable = false)
     private String telefone;
 
