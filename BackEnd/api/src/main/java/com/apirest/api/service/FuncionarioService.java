@@ -1,6 +1,7 @@
 package com.apirest.api.service;
 
 import com.apirest.api.dto.*;
+import com.apirest.api.entity.Cargo;
 import com.apirest.api.entity.Funcionario;
 import com.apirest.api.repository.FuncionarioRepository;
 import lombok.RequiredArgsConstructor;
@@ -8,6 +9,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -15,6 +17,13 @@ public class FuncionarioService {
 
     private final FuncionarioRepository repository;
     private final PasswordEncoder passwordEncoder;
+
+    private static final Set<Cargo> PERMISSAO_CRIAR_FUNCIONARIO = Set.of(
+            Cargo.DONO, Cargo.GERENTE, Cargo.LIDER_VENDA, Cargo.ADMIN
+    );
+
+
+
 
     public FuncionarioResponseDTO criar(FuncionarioDTO dto) {
 

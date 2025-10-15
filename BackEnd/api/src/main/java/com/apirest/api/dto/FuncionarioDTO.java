@@ -3,6 +3,7 @@ package com.apirest.api.dto;
 import com.apirest.api.entity.Cargo;
 import jakarta.validation.constraints.*;
 import lombok.*;
+import org.hibernate.validator.constraints.br.CPF;
 
 @Data
 @NoArgsConstructor
@@ -13,9 +14,11 @@ public class FuncionarioDTO {
     private Cargo cargo;
 
     @NotBlank(message = "O nome é obrigatório.")
+    @Pattern(regexp = "^[A-Za-zÀ-ÿ\\s]{5,255}$", message = "O nome deve conter apenas letras e ter pelo menos 5 caracteres")
     private String nomeCompleto;
 
     @NotBlank(message = "O CPF é obrigatório.")
+    @CPF(message = "CPF inválido")
     private String cpf;
 
     @Email(message = "O e-mail deve ser válido.")
@@ -23,9 +26,11 @@ public class FuncionarioDTO {
     private String email;
 
     @NotBlank(message = "O telefone é obrigatório.")
+    @Pattern(regexp = "^\\d{11}$", message = "Telefone deve ter 11 dígitos numéricos")
     private String telefone;
 
     @NotBlank(message = "O login é obrigatório.")
+    @Pattern(regexp = "^[A-Za-z0-9]{4,20}$", message = "O login deve ter entre 4 e 20 caracteres e conter apenas letras e números")
     private String login;
 
     @NotBlank(message = "A senha é obrigatória.")
