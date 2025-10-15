@@ -2,27 +2,31 @@ package com.apirest.api.dto;
 
 import jakarta.validation.constraints.*;
 import lombok.*;
+import org.hibernate.validator.constraints.br.CPF;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class ClienteDTO {
 
-    @NotBlank(message = "Nome é obrigatório")
+    @NotBlank(message = "O nome é obrigatório.")
+    @Pattern(regexp = "^[A-Za-zÀ-ÿ\\s]{3,50}$", message = "O nome deve conter apenas letras e ter entre 3 e 50 caracteres.")
     private String nomeCompleto;
 
-    @Email(message = "Email inválido")
-    @NotBlank(message = "Email é obrigatório")
+    @NotBlank(message = "O e-mail é obrigatório.")
+    @Email(message = "E-mail inválido.")
     private String email;
 
-    @NotBlank(message = "CPF é obrigatório")
-    @Size(min = 11, max = 11, message = "CPF deve ter 11 dígitos")
+    @NotBlank(message = "O CPF é obrigatório.")
+    @CPF(message = "CPF inválido")
     private String cpf;
 
-    @NotBlank(message = "Telefone é obrigatório")
+    @NotBlank(message = "O telefone é obrigatório.")
+    @Pattern(regexp = "^\\d{11}$", message = "Telefone deve ter 11 dígitos numéricos")
     private String telefone;
 
-    @NotBlank(message = "Login é obrigatório")
+    @NotBlank(message = "O login é obrigatório.")
+    @Pattern(regexp = "^[A-Za-z0-9]{4,20}$", message = "O login deve ter entre 4 e 20 caracteres e conter apenas letras e números")
     private String login;
 
     @NotBlank(message = "Senha é obrigatória")
