@@ -27,7 +27,7 @@ public class FuncionarioService {
 
     public FuncionarioResponseDTO criar(FuncionarioDTO dto) {
 
-        // 🔎 Validação de duplicidade
+        // Validação de duplicidade
         if (repository.existsByEmail(dto.getEmail()))
             throw new RuntimeException("E-mail já cadastrado.");
         if (repository.existsByCpf(dto.getCpf()))
@@ -35,7 +35,7 @@ public class FuncionarioService {
         if (repository.existsByLogin(dto.getLogin()))
             throw new RuntimeException("Login já cadastrado.");
 
-        // 🔐 Criptografa a senha
+        // Criptografa a senha
         String senhaCriptografada = passwordEncoder.encode(dto.getSenha());
 
         Funcionario funcionario = Funcionario.builder()
