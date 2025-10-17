@@ -12,25 +12,28 @@ public class ProdutoDTO {
     @NotNull(message = "idFuncionario é obrigatório")
     private Long idFuncionario;
 
-    @NotBlank(message = "Nome é obrigatório")
+    @NotBlank(message = "O nome do produto é obrigatório.")
+    @Size(min = 2, max = 100, message = "O nome do produto deve ter entre 2 e 100 caracteres.")
     private String nome;
 
-    // pode enviar nome da categoria (string) — se existir será usada, senão criada
-    @NotBlank(message = "Categoria é obrigatória")
+    // Pode vir o nome da categoria (será criada se não existir)
+    @NotBlank(message = "A categoria é obrigatória.")
+    @Size(min = 2, max = 100, message = "O nome da categoria deve ter entre 2 e 100 caracteres.")
     private String categoria;
 
-    @NotNull(message = "valorCusto é obrigatório")
-    @PositiveOrZero(message = "valorCusto deve ser >= 0")
+    @NotNull(message = "O valor de custo é obrigatório.")
+    @DecimalMin(value = "0.0", inclusive = true, message = "O valor de custo deve ser maior ou igual a 0.")
     private Double valorCusto;
 
-    @NotNull(message = "valorVenda é obrigatório")
-    @Positive(message = "valorVenda deve ser > 0")
+    @NotNull(message = "O valor de venda é obrigatório.")
+    @DecimalMin(value = "0.01", inclusive = true, message = "O valor de venda deve ser maior que 0.")
     private Double valorVenda;
 
-    @NotBlank(message = "Descrição é obrigatória")
+    @NotBlank(message = "A descrição é obrigatória.")
+    @Size(min = 5, max = 500, message = "A descrição deve ter entre 5 e 500 caracteres.")
     private String descricao;
 
-    @NotNull(message = "quantidadeEmEstoque é obrigatória")
-    @Min(value = 0, message = "quantidadeEmEstoque não pode ser negativa")
+    @NotNull(message = "A quantidade em estoque é obrigatória.")
+    @Min(value = 0, message = "A quantidade em estoque não pode ser negativa.")
     private Integer quantidadeEmEstoque;
 }
