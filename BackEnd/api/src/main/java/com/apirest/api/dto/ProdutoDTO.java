@@ -3,6 +3,8 @@ package com.apirest.api.dto;
 import jakarta.validation.constraints.*;
 import lombok.*;
 
+import java.math.BigDecimal;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -23,11 +25,11 @@ public class ProdutoDTO {
 
     @NotNull(message = "O valor de custo é obrigatório.")
     @DecimalMin(value = "0.0", inclusive = true, message = "O valor de custo deve ser maior ou igual a 0.")
-    private Double valorCusto;
+    private BigDecimal valorCusto;
 
     @NotNull(message = "O valor de venda é obrigatório.")
     @DecimalMin(value = "0.01", inclusive = true, message = "O valor de venda deve ser maior que 0.")
-    private Double valorVenda;
+    private BigDecimal valorVenda;
 
     @NotBlank(message = "A descrição é obrigatória.")
     @Size(min = 5, max = 500, message = "A descrição deve ter entre 5 e 500 caracteres.")

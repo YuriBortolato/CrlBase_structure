@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import lombok.*;
 
+import java.math.BigDecimal;
+
 @Entity
 @Table(name = "produtos")
 @Data
@@ -32,14 +34,14 @@ public class Produto {
     @DecimalMin(value = "0.0", inclusive = false, message = "O valor de custo deve ser maior que zero.")
     @Digits(integer = 10, fraction = 2, message = "O valor de custo deve ter no máximo 10 dígitos inteiros e 2 decimais.")
     @Column(name = "valor_custo", nullable = false)
-    private Double valorCusto;
+    private BigDecimal valorCusto;
 
     // venda deve ser maior que custo
     @NotNull(message = "O valor de venda é obrigatório.")
     @DecimalMin(value = "0.0", inclusive = false, message = "O valor de venda deve ser maior que zero.") // <-- ADICIONADO
     @Digits(integer = 10, fraction = 2, message = "O valor de venda deve ter no máximo 10 dígitos inteiros e 2 decimais.") // <-- ADICIONADO
     @Column(name = "valor_venda", nullable = false)
-    private Double valorVenda;
+    private BigDecimal valorVenda;
 
 
     @NotBlank(message = "A descrição é obrigatória.")

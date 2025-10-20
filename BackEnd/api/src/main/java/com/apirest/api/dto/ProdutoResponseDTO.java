@@ -2,6 +2,8 @@ package com.apirest.api.dto;
 
 import lombok.*;
 
+import java.math.BigDecimal;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -10,7 +12,7 @@ public class ProdutoResponseDTO {
     private String nome;
     private String descricao;
     private String categoria;
-    private Double valorVenda;
+    private BigDecimal valorVenda;
     private Integer quantidadeEmEstoque;
     private String statusEstoque; // "Esgotado", "Quase Esgotado", "Disponível"
 }
