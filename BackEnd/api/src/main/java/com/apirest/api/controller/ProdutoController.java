@@ -2,47 +2,66 @@ package com.apirest.api.controller;
 
 
 import com.apirest.api.dto.*;
-import com.apirest.api.entity.Produto;
 import com.apirest.api.service.ProdutoService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/produtos")
+@RequestMapping("/produtos")
 @RequiredArgsConstructor
 public class ProdutoController {
 
     private final ProdutoService service;
 
-    // criar produto (só cargos autorizados)
+
     @PostMapping
     public ResponseEntity<ProdutoResponseDTO> criar(@Valid @RequestBody ProdutoDTO dto) {
         ProdutoResponseDTO response = service.criarProduto(dto);
-        return ResponseEntity.ok(response);
+        return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 
-    // atualizar (nome, descricao, categoria) - enviar idFuncionario dentro do DTO
+    // PUT para atualizar informações gerais do produto
     @PutMapping("/{id}")
-    public ResponseEntity<ProdutoResponseDTO> atualizar(
+    public ResponseEntity<ProdutoResponseDTO> atualizarInformacoes(
             @PathVariable Long id,
             @Valid @RequestBody ProdutoUpdateDTO dto) {
-        ProdutoResponseDTO response = service.atualizarProduto(id, dto);
+        ProdutoResponseDTO response = service.atualizarInformacoes(id, dto);
         return ResponseEntity.ok(response);
     }
 
-    // listar público — todos (clientes e funcionários) podem ver
-    @GetMapping
-    public ResponseEntity<List<ProdutoResponseDTO>> listarPublico() {
-        return ResponseEntity.ok(service.listarProdutosPublico());
+    // PATCH para atualizar preço e estoque
+    @PatchMapping("/{id}/preco-estoque")
+    public ResponseEntity<ProdutoResponseDTO> atualizarPrecoEEstoque(
+            @PathVariable Long id,
+            @Valid @RequestBody ProdutoPrecoEstoqueUpdateDTO dto) {
+        ProdutoResponseDTO response = service.atualizarPrecoEEstoque(id, dto);
+        return ResponseEntity.ok(response);
     }
 
-    // buscar por id (detalhes)
+    // Lista todos os produtos ativos
+    @GetMapping
+    public ResponseEntity<List<ProdutoResponseDTO>> listarAtivos() {
+        return ResponseEntity.ok(service.listarProdutosAtivos());
+    }
+
+    // Busca produto por ID
     @GetMapping("/{id}")
     public ResponseEntity<ProdutoResponseDTO> buscarPorId(@PathVariable Long id) {
         return ResponseEntity.ok(service.getProdutoResponseById(id));
     }
+
+    // DELETE lógico de um produto
+    @DeleteMapping("/{idProduto}/{idFuncionario}")
+    public ResponseEntity<Void> deletarProduto(
+            @PathVariable Long idProduto,
+            @PathVariable Long idFuncionario) {
+        service.deletarProdutoLogicamente(idProduto, idFuncionario);
+        return ResponseEntity.noContent().build();
+    }
 }
+
