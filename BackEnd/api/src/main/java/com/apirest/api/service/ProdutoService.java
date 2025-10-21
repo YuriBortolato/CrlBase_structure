@@ -72,10 +72,29 @@ public class ProdutoService {
                 .orElseThrow(() -> new RuntimeException("Produto não encontrado"));
 
         // atualizar apenas nome, descricao e categoria
-        produto.setNome(dto.getNome());
-        produto.setDescricao(dto.getDescricao());
-        Categoria categoria = categoriaService.findOrCreateByNameNormalize(dto.getCategoria());
-        produto.setCategoria(categoria);
+        if (dto.getNome() != null) {
+            produto.setNome(dto.getNome());
+        }
+
+        if (dto.getDescricao() != null) {
+            produto.setDescricao(dto.getDescricao());
+        }
+
+        if (dto.getCategoria() != null) {
+            Categoria categoria = categoriaService.findOrCreateByNameNormalize(dto.getCategoria());
+            produto.setCategoria(categoria);
+        }
+        if (dto.getQuantidadeEmEstoque() != null) {
+            produto.setQuantidadeEmEstoque(dto.getQuantidadeEmEstoque());
+        }
+
+        if (dto.getValorVenda() != null) {
+            produto.setValorVenda(dto.getValorVenda());
+        }
+
+        if (dto.getValorCusto() != null) {
+            produto.setValorCusto(dto.getValorCusto());
+        }
 
         Produto salvo = produtoRepository.save(produto);
         return toResponseDTO(salvo);

@@ -1,5 +1,6 @@
 package com.apirest.api.dto;
 
+import jakarta.persistence.Column;
 import jakarta.validation.constraints.*;
 import lombok.*;
 
@@ -16,6 +17,7 @@ public class ProdutoDTO {
 
     @NotBlank(message = "O nome do produto é obrigatório.")
     @Size(min = 2, max = 100, message = "O nome do produto deve ter entre 2 e 100 caracteres.")
+    @Column(name = "nome", nullable = false, length = 100, unique = true) // deve corrigir mais tarde --------------------------
     private String nome;
 
     // Pode vir o nome da categoria (será criada se não existir)
