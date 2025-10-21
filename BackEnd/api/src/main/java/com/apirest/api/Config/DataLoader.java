@@ -21,6 +21,9 @@ public class DataLoader implements CommandLineRunner  {
             Funcionario admin = Funcionario.builder()
                     .nomeCompleto("Administrador do Sistema")
                     .login("admin")
+                    .cpf("25285178908")
+                    .email("pato@sistema.com")
+                    .telefone("4488239541")
                     .senhaCriptografada(passwordEncoder.encode("admin123")) // senha padrão
                     .cargo(Cargo.ADMIN)
                     .build();

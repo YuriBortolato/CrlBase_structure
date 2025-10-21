@@ -1,5 +1,7 @@
 package com.apirest.api.entity;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+
 import java.util.Arrays;
 
 public enum Cargo {
@@ -10,6 +12,7 @@ public enum Cargo {
     RECEPCIONISTA,
     RECEPCIONISTA_TESTE;
 
+    @JsonCreator
     public static Cargo fromString(String value) {
         // verifica se o texto foi nulo ou vazio
         if (value == null || value.trim().isEmpty()) {
