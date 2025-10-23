@@ -49,4 +49,8 @@ public class Funcionario {
     @NotBlank(message = "A senha é obrigatória.")
     @Column(nullable = false)
     private String senhaCriptografada;
+
+    @Builder.Default
+    @Column(nullable = false)
+    private boolean ativo = true;
 }

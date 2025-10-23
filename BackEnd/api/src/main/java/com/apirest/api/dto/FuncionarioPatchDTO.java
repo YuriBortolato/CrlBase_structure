@@ -1,41 +1,37 @@
 package com.apirest.api.dto;
 
 import com.apirest.api.entity.Cargo;
-import jakarta.validation.constraints.*;
-import lombok.*;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import org.hibernate.validator.constraints.br.CPF;
 
 @Data
 @NoArgsConstructor
-@AllArgsConstructor
-public class FuncionarioDTO {
+public class FuncionarioPatchDTO {
 
-    @NotNull(message = "O cargo é obrigatório.")
     private Cargo cargo;
 
-    @NotBlank(message = "O nome é obrigatório.")
     @Pattern(regexp = "^[A-Za-zÀ-ÿ\\s]{5,255}$", message = "O nome deve conter apenas letras e ter pelo menos 5 caracteres")
     private String nomeCompleto;
 
-    @NotBlank(message = "O CPF é obrigatório.")
     @CPF(message = "CPF inválido")
     private String cpf;
 
-    @NotBlank(message = "O e-mail é obrigatório.")
     @Email(message = "O e-mail deve ser válido.")
     private String email;
 
-    @NotBlank(message = "O telefone é obrigatório.")
     @Pattern(regexp = "^\\d{11}$", message = "Telefone deve ter 11 dígitos numéricos")
     private String telefone;
 
-    @NotBlank(message = "O login é obrigatório.")
     @Pattern(regexp = "^[A-Za-z0-9]{4,20}$", message = "O login deve ter entre 4 e 20 caracteres e conter apenas letras e números")
     private String login;
 
-    @NotBlank(message = "A senha é obrigatória.")
     @Size(min = 6, message = "Senha deve ter no mínimo 6 caracteres")
     private String senha;
+
     public void setEmail(String email) {
         if (email != null) {
             this.email = email.toLowerCase();
