@@ -111,7 +111,7 @@ public class ProdutoService {
     }
 
     private Produto findProdutoAtivoById(Long id) {
-        return produtoRepository.findByIdAndAtivoTrue(id)
+        return produtoRepository.findByIdProdutoAndAtivoTrue(id)
                 .orElseThrow(() -> new RuntimeException("Produto não encontrado ou inativo. ID: " + id));
     }
 

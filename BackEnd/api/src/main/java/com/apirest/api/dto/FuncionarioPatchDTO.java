@@ -23,7 +23,7 @@ public class FuncionarioPatchDTO {
     @Email(message = "O e-mail deve ser válido.")
     private String email;
 
-    @Pattern(regexp = "^\\d{11}$", message = "Telefone deve ter 11 dígitos numéricos")
+    @Pattern(regexp = "^\\+?\\d{10,15}$", message = "O telefone deve conter apenas números e ter entre 10 e 15 dígitos.")
     private String telefone;
 
     @Pattern(regexp = "^[A-Za-z0-9]{4,20}$", message = "O login deve ter entre 4 e 20 caracteres e conter apenas letras e números")

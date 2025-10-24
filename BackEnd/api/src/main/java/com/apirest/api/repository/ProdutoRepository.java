@@ -12,5 +12,5 @@ import java.util.Optional;
 public interface ProdutoRepository extends JpaRepository<Produto, Long> {
     boolean existsByNomeAndAtivoTrue(String nome);
     List<Produto> findAllByAtivoTrue();
-    Optional<Produto> findByIdAndAtivoTrue(Long id);
+    Optional<Produto> findByIdProdutoAndAtivoTrue(Long id);
 }

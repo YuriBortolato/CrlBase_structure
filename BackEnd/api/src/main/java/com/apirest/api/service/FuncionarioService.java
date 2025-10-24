@@ -70,7 +70,7 @@ public class FuncionarioService {
     }
 
     public List<Funcionario> listarTodos() {
-        return repository.findAll();
+        return repository.findAllByAtivoTrue();
     }
 
     public Funcionario buscarPorId(Long id) {
