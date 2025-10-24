@@ -1,6 +1,7 @@
 package com.apirest.api.controller;
 
 import com.apirest.api.dto.ClienteDTO;
+import com.apirest.api.dto.ClientePatchDTO;
 import com.apirest.api.dto.ClienteResponseDTO;
 import com.apirest.api.entity.Cliente;
 import com.apirest.api.service.ClienteService;
@@ -32,5 +33,23 @@ public class ClienteController {
     @GetMapping("/{id}")
     public ResponseEntity<Cliente> buscarPorId(@PathVariable Long id) {
         return ResponseEntity.ok(service.buscarPorId(id));
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<ClienteResponseDTO> atualizar(@PathVariable Long id, @Valid @RequestBody ClienteDTO dto) {
+        ClienteResponseDTO response = service.atualizar(id, dto);
+        return ResponseEntity.ok(response);
+    }
+
+    @PatchMapping("/{id}")
+    public ResponseEntity<ClienteResponseDTO> atualizarParcial(@PathVariable Long id, @Valid @RequestBody ClientePatchDTO patchDto) {
+        ClienteResponseDTO response = service.atualizarParcial(id, patchDto);
+        return ResponseEntity.ok(response);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deletar(@PathVariable Long id) {
+        service.deletar(id);
+        return ResponseEntity.ok().build();
     }
 }

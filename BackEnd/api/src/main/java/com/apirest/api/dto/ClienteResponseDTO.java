@@ -12,4 +12,5 @@ public class ClienteResponseDTO {
     private String cpf;
     private String telefone;
     private String login;
+    private boolean ativo;
 }
