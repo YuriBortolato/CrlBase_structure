@@ -22,9 +22,9 @@ public class DataLoader implements CommandLineRunner  {
                     .nomeCompleto("Administrador do Sistema")
                     .login("admin")
                     .cpf("25285178908")
-                    .email("pato@sistema.com")
+                    .email("pato@sistema.com".toLowerCase())
                     .telefone("4488239541")
-                    .senhaCriptografada(passwordEncoder.encode("admin123")) // senha padrão
+                    .senhaCriptografada(passwordEncoder.encode("admin123")) // senha padrão para desenvolvimento
                     .cargo(Cargo.ADMIN)
                     .build();
 
