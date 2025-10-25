@@ -221,6 +221,13 @@ public class ClienteService {
         if (patchDto.getSenha() != null && !patchDto.getSenha().isBlank()) {
             clienteExistente.setSenhaCriptografada(passwordEncoder.encode(patchDto.getSenha()));
         }
+
+        // Atualiza o status ativo se fornecido
+        if (patchDto.getAtivo() != null) {
+            // Só atualiza se o valor for diferente
+            clienteExistente.setAtivo(patchDto.getAtivo());
+        }
+
         // Salva as alterações no banco de dados
         Cliente salvo = repository.save(clienteExistente);
 

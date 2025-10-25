@@ -32,4 +32,6 @@ public class ClientePatchDTO {
 
     @Size(min = 6, message = "Senha deve ter no mínimo 6 caracteres")
     private String senha;
+
+    private Boolean ativo;
 }

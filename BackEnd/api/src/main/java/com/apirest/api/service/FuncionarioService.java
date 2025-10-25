@@ -258,6 +258,14 @@ public class FuncionarioService {
             clienteEspelho.setSenhaCriptografada(senhaCripto); // Sincroniza
         }
 
+        // Verifica e atualiza o status ativo
+        if (patchDto.getAtivo() != null) {
+            if (patchDto.getAtivo() != funcionarioExistente.isAtivo()) {
+                funcionarioExistente.setAtivo(patchDto.getAtivo());
+                clienteEspelho.setAtivo(patchDto.getAtivo()); // Sincroniza
+            }
+        }
+
         Funcionario salvo = repository.save(funcionarioExistente);
         clienteRepository.save(clienteEspelho);
 

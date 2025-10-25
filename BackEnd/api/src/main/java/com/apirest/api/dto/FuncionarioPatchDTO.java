@@ -35,6 +35,8 @@ public class FuncionarioPatchDTO {
     @Size(min = 6, message = "Senha deve ter no mínimo 6 caracteres")
     private String senha;
 
+    private Boolean ativo;
+
     public void setEmail(String email) {
         if (email != null) {
             this.email = email.toLowerCase();
