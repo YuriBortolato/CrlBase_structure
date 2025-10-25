@@ -10,6 +10,8 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.time.LocalDate;
+
 @Configuration
 @RequiredArgsConstructor
 public class DataLoader implements CommandLineRunner  {
@@ -40,6 +42,8 @@ public class DataLoader implements CommandLineRunner  {
                     .telefone(adminTelefone)
                     .senhaCriptografada(senhaCripto)
                     .cargo(Cargo.ADMIN)
+                    .nomeRegistro("Admin")
+                    .dataNascimento(LocalDate.of(1990, 1, 1))
                     .build();
 
             funcionarioRepository.save(admin);
@@ -53,6 +57,7 @@ public class DataLoader implements CommandLineRunner  {
                         .telefone(adminTelefone)
                         .senhaCriptografada(senhaCripto)
                         .ativo(true)
+                        .dataNascimento(LocalDate.of(1990, 1, 1))
                         .build();
 
                 clienteRepository.save(clienteAdmin);

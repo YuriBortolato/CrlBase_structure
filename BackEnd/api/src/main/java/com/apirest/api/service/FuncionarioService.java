@@ -13,6 +13,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
+import java.time.Period;
 import java.util.List;
 import java.util.Set;
 
@@ -46,8 +48,19 @@ public class FuncionarioService {
             throw new RuntimeException("E-mail já cadastrado.");
         if (repository.existsByCpf(cpfLimpo)|| clienteRepository.existsByCpf(cpfLimpo))
             throw new RuntimeException("CPF já cadastrado.");
+
         if (repository.existsByLogin(dto.getLogin())|| clienteRepository.existsByLogin(dto.getLogin()))
             throw new RuntimeException("Login já cadastrado.");
+
+        if (dto.getDataNascimento() != null) {
+            int idade = Period.between(dto.getDataNascimento(), LocalDate.now()).getYears();
+            if (idade < 18) {
+                throw new RuntimeException("O funcionário deve ter pelo menos 18 anos de idade.");
+            }
+        } else {
+            // Data de nascimento é obrigatória
+            throw new RuntimeException("Data de nascimento é obrigatória.");
+        }
 
         // Criptografa a senha
         String senhaCriptografada = passwordEncoder.encode(dto.getSenha());
@@ -55,8 +68,10 @@ public class FuncionarioService {
         Funcionario funcionario = Funcionario.builder()
                 .cargo(dto.getCargo())
                 .nomeCompleto(dto.getNomeCompleto())
+                .nomeRegistro(dto.getNomeRegistro())
                 .cpf(dto.getCpf())
                 .email(dto.getEmail())
+                .dataNascimento(dto.getDataNascimento())
                 .telefone(dto.getTelefone())
                 .login(dto.getLogin())
                 .senhaCriptografada(senhaCriptografada)
@@ -67,6 +82,7 @@ public class FuncionarioService {
         // Cria o cliente correspondente
         ClienteDTO clienteDtoParaFuncionario = new ClienteDTO();
         clienteDtoParaFuncionario.setNomeCompleto(salvo.getNomeCompleto());
+        clienteDtoParaFuncionario.setDataNascimento(salvo.getDataNascimento());
         clienteDtoParaFuncionario.setEmail(salvo.getEmail());
         clienteDtoParaFuncionario.setCpf(salvo.getCpf());
         clienteDtoParaFuncionario.setTelefone(salvo.getTelefone());
@@ -86,10 +102,12 @@ public class FuncionarioService {
                 salvo.getIdFuncionario(),
                 salvo.getCargo(),
                 salvo.getNomeCompleto(),
+                salvo.getNomeRegistro(),
                 salvo.getCpf(),
                 salvo.getEmail(),
                 salvo.getTelefone(),
                 salvo.getLogin(),
+                salvo.getDataNascimento(),
                 salvo.isAtivo()
         );
     }
@@ -132,8 +150,10 @@ public class FuncionarioService {
             throw new RuntimeException("Login já cadastrado em outra conta.");
         }
 
+        // Data de nascimento e CPF não são atualizados
         funcionarioExistente.setCargo(dto.getCargo());
         funcionarioExistente.setNomeCompleto(dto.getNomeCompleto());
+        funcionarioExistente.setNomeRegistro(dto.getNomeRegistro());
         funcionarioExistente.setEmail(dto.getEmail());
         funcionarioExistente.setTelefone(dto.getTelefone());
         funcionarioExistente.setLogin(dto.getLogin());
@@ -168,10 +188,12 @@ public class FuncionarioService {
                 salvo.getIdFuncionario(),
                 salvo.getCargo(),
                 salvo.getNomeCompleto(),
+                salvo.getNomeRegistro(),
                 salvo.getCpf(),
                 salvo.getEmail(),
                 salvo.getTelefone(),
                 salvo.getLogin(),
+                salvo.getDataNascimento(),
                 salvo.isAtivo()
         );
     }
@@ -198,19 +220,25 @@ public class FuncionarioService {
             clienteEspelho.setNomeCompleto(patchDto.getNomeCompleto()); // Sincroniza
         }
 
+        if (patchDto.getNomeRegistro() != null && !patchDto.getNomeRegistro().isBlank()) {
+            funcionarioExistente.setNomeRegistro(patchDto.getNomeRegistro()); // Corrigido (era setAnoRegistro)
+        }
+
         if (patchDto.getEmail() != null && !patchDto.getEmail().isBlank()) {
 
             boolean emailMudouParcial = (funcionarioExistente.getEmail() == null) || !patchDto.getEmail().equalsIgnoreCase(funcionarioExistente.getEmail());
             if (emailMudouParcial && (repository.existsByEmail(patchDto.getEmail()) || clienteRepository.existsByEmail(patchDto.getEmail()))) {
                 throw new RuntimeException("E-mail já cadastrado em outra conta.");
             }
+            // Atualiza o email tanto no funcionário quanto no cliente-espelho
             funcionarioExistente.setEmail(patchDto.getEmail());
-            clienteEspelho.setEmail(patchDto.getEmail()); // Sincroniza
+            clienteEspelho.setEmail(patchDto.getEmail());
         }
 
+        // Verifica e atualiza o telefone
         if (patchDto.getTelefone() != null && !patchDto.getTelefone().isBlank()) {
             funcionarioExistente.setTelefone(patchDto.getTelefone());
-            clienteEspelho.setTelefone(patchDto.getTelefone()); // Sincroniza
+            clienteEspelho.setTelefone(patchDto.getTelefone());
         }
 
         // Verifica e atualiza o login
@@ -237,10 +265,12 @@ public class FuncionarioService {
                 salvo.getIdFuncionario(),
                 salvo.getCargo(),
                 salvo.getNomeCompleto(),
+                salvo.getNomeRegistro(),
                 salvo.getCpf(),
                 salvo.getEmail(),
                 salvo.getTelefone(),
                 salvo.getLogin(),
+                salvo.getDataNascimento(),
                 salvo.isAtivo()
         );
     }

@@ -5,6 +5,8 @@ import jakarta.validation.constraints.*;
 import lombok.*;
 import org.hibernate.validator.constraints.br.CPF;
 
+import java.time.LocalDate;
+
 @Entity
 @Table(name = "funcionarios")
 @Data
@@ -26,6 +28,11 @@ public class Funcionario {
     @Column(nullable = false)
     private String nomeCompleto;
 
+    @NotBlank(message = "O nome de registro é obrigatório.")
+    @Pattern(regexp = "^[A-Za-zÀ-ÿ\\s]{3,50}$", message = "O nome de registro deve conter apenas letras e ter entre 3 e 50 caracteres.")
+    @Column(nullable = false, name = "nome_registro")
+    private String nomeRegistro;
+
     @NotBlank(message = "O CPF é obrigatório.")
     @CPF(message = "CPF inválido")
     @Column(nullable = false, unique = true, length = 11)
@@ -35,6 +42,11 @@ public class Funcionario {
     @NotBlank(message = "O e-mail é obrigatório.")
     @Column(nullable = false, unique = true)
     private String email;
+
+    @NotNull(message = "A data de nascimento é obrigatória.")
+    @Past(message = "A data de nascimento deve ser no passado.")
+    @Column(nullable = false, name = "data_nascimento")
+    private LocalDate dataNascimento;
 
     @NotBlank(message = "O telefone é obrigatório.")
     @Pattern(regexp = "^\\+?\\d{10,15}$", message = "O telefone deve conter apenas números e ter entre 10 e 15 dígitos.")

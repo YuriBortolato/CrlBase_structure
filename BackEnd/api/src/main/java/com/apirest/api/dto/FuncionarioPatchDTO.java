@@ -17,6 +17,9 @@ public class FuncionarioPatchDTO {
     @Pattern(regexp = "^[A-Za-zÀ-ÿ\\s]{5,255}$", message = "O nome deve conter apenas letras e ter pelo menos 5 caracteres")
     private String nomeCompleto;
 
+    @Pattern(regexp = "^[A-Za-zÀ-ÿ\\s]{3,50}$", message = "O nome de registro deve conter apenas letras e ter entre 3 e 50 caracteres.")
+    private String nomeRegistro;
+
     @CPF(message = "CPF inválido")
     private String cpf;
 

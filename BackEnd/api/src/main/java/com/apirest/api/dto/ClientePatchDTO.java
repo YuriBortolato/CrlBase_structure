@@ -17,15 +17,12 @@ import java.time.LocalDate;
 public class ClientePatchDTO {
 
 
+
     @Pattern(regexp = "^[A-Za-zÀ-ÿ\\s]{3,50}$", message = "O nome deve conter apenas letras e ter entre 3 e 50 caracteres.")
     private String nomeCompleto;
 
     @Email(message = "E-mail inválido.")
     private String email;
-
-    @Past(message = "A data de nascimento deve ser uma data no passado.")
-    @JsonFormat(pattern = "dd-MM-yyyy", shape = JsonFormat.Shape.STRING)
-    private LocalDate dataNascimento;
 
     @Pattern(regexp = "^\\+?\\d{10,15}$", message = "O telefone deve conter apenas números e ter entre 10 e 15 dígitos.")
     private String telefone;
