@@ -27,7 +27,7 @@ public class ProdutoService {
 
     private static final Set<String> PERMISSAO_CRIAR = Set.of("DONO", "GERENTE", "LIDER_VENDA", "ADMIN");
     private static final Set<String> PERMISSAO_EDITAR_INFO = Set.of("DONO", "GERENTE", "LIDER_VENDA", "ADMIN", "RECEPCIONISTA");
-    private static final Set<String> PERMISSAO_EDITAR_PRECO_ESTOQUE = Set.of("DONO", "GERENTE", "LIDER_VENDA", "ADMIN");
+    private static final Set<String> PERMISSAO_EDITAR_PRECO_ESTOQUE_DESC = Set.of("DONO", "GERENTE", "LIDER_VENDA", "ADMIN");
     private static final Set<String> PERMISSAO_DELETAR = Set.of("DONO", "GERENTE", "ADMIN");
 
     @Transactional
@@ -63,6 +63,10 @@ public class ProdutoService {
     public ProdutoResponseDTO atualizarInformacoes(Long idProduto, ProdutoUpdateDTO dto) {
         validarPermissao(dto.getIdFuncionario(), PERMISSAO_EDITAR_INFO, "modificar informações do produto");
 
+        if (dto.getValorCusto().compareTo(dto.getValorVenda()) >= 0) {
+            throw new RuntimeException("O valor de venda deve ser maior que o valor de custo.");
+        }
+
         Produto produto = findProdutoAtivoById(idProduto);
 
         produto.setNome(dto.getNome().trim().toUpperCase());
@@ -70,14 +74,17 @@ public class ProdutoService {
         Categoria categoria = categoriaService.findOrCreateByNameNormalize(dto.getCategoria());
         produto.setCategoria(categoria);
 
+        produto.setValorCusto(dto.getValorCusto());
+        produto.setValorVenda(dto.getValorVenda());
+        produto.setQuantidadeEmEstoque(dto.getQuantidadeEmEstoque());
+
         Produto salvo = produtoRepository.save(produto);
         return toResponseDTO(salvo);
     }
 
     @Transactional
     public ProdutoResponseDTO atualizarPrecoEEstoque(Long idProduto, ProdutoPrecoEstoqueUpdateDTO dto) {
-        validarPermissao(dto.getIdFuncionario(), PERMISSAO_EDITAR_PRECO_ESTOQUE, "modificar preço ou estoque");
-
+        validarPermissao(dto.getIdFuncionario(), PERMISSAO_EDITAR_PRECO_ESTOQUE_DESC, "modificar preço, estoque ou descrição");
         if (dto.getValorCusto().compareTo(dto.getValorVenda()) >= 0) {
             throw new RuntimeException("O valor de venda deve ser maior que o valor de custo.");
         }
@@ -86,6 +93,7 @@ public class ProdutoService {
         produto.setValorCusto(dto.getValorCusto());
         produto.setValorVenda(dto.getValorVenda());
         produto.setQuantidadeEmEstoque(dto.getQuantidadeEmEstoque());
+        produto.setDescricao(dto.getDescricao());
 
         Produto salvo = produtoRepository.save(produto);
         return toResponseDTO(salvo);

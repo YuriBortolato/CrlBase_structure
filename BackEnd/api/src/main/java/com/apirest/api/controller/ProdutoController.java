@@ -34,9 +34,9 @@ public class ProdutoController {
         return ResponseEntity.ok(response);
     }
 
-    // PATCH para atualizar preço e estoque
-    @PatchMapping("/{id}/preco-estoque")
-    public ResponseEntity<ProdutoResponseDTO> atualizarPrecoEEstoque(
+    // PATCH para atualizar preço, estoque e descrição
+    @PatchMapping("/{id}")
+    public ResponseEntity<ProdutoResponseDTO> atualizarParcialmente(
             @PathVariable Long id,
             @Valid @RequestBody ProdutoPrecoEstoqueUpdateDTO dto) {
         ProdutoResponseDTO response = service.atualizarPrecoEEstoque(id, dto);
