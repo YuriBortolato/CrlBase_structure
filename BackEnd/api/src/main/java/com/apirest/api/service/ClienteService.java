@@ -5,6 +5,7 @@ import com.apirest.api.dto.ClientePatchDTO;
 import com.apirest.api.dto.ClienteResponseDTO;
 import com.apirest.api.entity.Cliente;
 import com.apirest.api.repository.ClienteRepository;
+import com.apirest.api.repository.FuncionarioRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -17,6 +18,7 @@ import java.util.List;
 public class ClienteService {
 
     private final ClienteRepository repository;
+    private final FuncionarioRepository funcionarioRepository;
     private final PasswordEncoder passwordEncoder;
 
     // metodo para limpar CPF (remover pontos e traços)
@@ -33,13 +35,13 @@ public class ClienteService {
         // limpa CPF
         String cpfLimpo = limparCPF(dto.getCpf());
         // validação de email
-        if (repository.existsByEmail(dto.getEmail()))
+        if (repository.existsByEmail(dto.getEmail()) || funcionarioRepository.existsByEmail(dto.getEmail()))
             throw new RuntimeException("Email já cadastrado.");
         // validação de CPF
-        if (repository.existsByCpf(cpfLimpo))
+        if (repository.existsByCpf(cpfLimpo) || funcionarioRepository.existsByCpf(cpfLimpo))
             throw new RuntimeException("CPF já cadastrado.");
         // validação de login
-        if (repository.existsByLogin(dto.getLogin()))
+        if (repository.existsByLogin(dto.getLogin()) || funcionarioRepository.existsByLogin(dto.getLogin()))
             throw new RuntimeException("Login já cadastrado.");
 
         // criptografa senha
@@ -68,6 +70,24 @@ public class ClienteService {
         );
     }
 
+    @Transactional
+    public Cliente criarClienteDeFuncionario(ClienteDTO dto) {
+
+        String senhaHash = passwordEncoder.encode(dto.getSenha());
+
+        Cliente cliente = Cliente.builder()
+                .nomeCompleto(dto.getNomeCompleto())
+                .email(dto.getEmail())
+                .cpf(dto.getCpf())
+                .telefone(dto.getTelefone())
+                .login(dto.getLogin())
+                .senhaCriptografada(senhaHash)
+                .ativo(true) // Funcionário nasce como cliente ativo
+                .build();
+
+        return repository.save(cliente);
+    }
+
     // listar todos clientes ativos
     public List<Cliente> listarTodos() {
         return repository.findAllByAtivoTrue();
@@ -94,7 +114,7 @@ public class ClienteService {
                 emailMudou = !dto.getEmail().equalsIgnoreCase(clienteExistente.getEmail());
             }
         }
-        if (emailMudou && repository.existsByEmail(dto.getEmail())) {
+        if (emailMudou && repository.existsByEmail(dto.getEmail())|| funcionarioRepository.existsByEmail(dto.getEmail())) {
             throw new RuntimeException("E-mail já cadastrado em outra conta.");
         }
         // Verifica se o login foi alterado
@@ -106,7 +126,7 @@ public class ClienteService {
                 loginMudou = !dto.getLogin().equals(clienteExistente.getLogin());
             }
         }
-        if (loginMudou && repository.existsByLogin(dto.getLogin())) {
+        if (loginMudou && repository.existsByLogin(dto.getLogin())|| funcionarioRepository.existsByLogin(dto.getLogin())) {
             throw new RuntimeException("Login já cadastrado em outra conta.");
         }
         clienteExistente.setNomeCompleto(dto.getNomeCompleto());
@@ -151,7 +171,7 @@ public class ClienteService {
                 emailMudouParcial = !patchDto.getEmail().equalsIgnoreCase(clienteExistente.getEmail());
             }
 
-            if (emailMudouParcial && repository.existsByEmail(patchDto.getEmail())) {
+            if (emailMudouParcial && repository.existsByEmail(patchDto.getEmail()) || funcionarioRepository.existsByEmail(patchDto.getEmail())) {
                 throw new RuntimeException("E-mail já cadastrado em outra conta.");
             }
             clienteExistente.setEmail(patchDto.getEmail());
@@ -169,7 +189,7 @@ public class ClienteService {
                 loginMudouParcial = !patchDto.getLogin().equals(clienteExistente.getLogin());
             }
 
-            if (loginMudouParcial && repository.existsByLogin(patchDto.getLogin())) {
+            if (loginMudouParcial && repository.existsByLogin(patchDto.getLogin()) || funcionarioRepository.existsByLogin(patchDto.getLogin())) {
                 throw new RuntimeException("Login já cadastrado em outra conta.");
             }
             clienteExistente.setLogin(patchDto.getLogin());
