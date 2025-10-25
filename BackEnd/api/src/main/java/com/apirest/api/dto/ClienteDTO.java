@@ -1,8 +1,11 @@
 package com.apirest.api.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.validation.constraints.*;
 import lombok.*;
 import org.hibernate.validator.constraints.br.CPF;
+
+import java.time.LocalDate;
 
 @Data
 @NoArgsConstructor
@@ -20,6 +23,11 @@ public class ClienteDTO {
     @NotBlank(message = "O CPF é obrigatório.")
     @CPF(message = "CPF inválido")
     private String cpf;
+
+    @NotNull(message = "A data de nascimento é obrigatória.")
+    @Past(message = "A data de nascimento deve ser uma data no passado.")
+    @JsonFormat(pattern = "dd-MM-yyyy", shape = JsonFormat.Shape.STRING)
+    private LocalDate dataNascimento;
 
     @NotBlank(message = "O telefone é obrigatório.")
     @Pattern(regexp = "^\\+?\\d{10,15}$", message = "O telefone deve conter apenas números e ter entre 10 e 15 dígitos.")

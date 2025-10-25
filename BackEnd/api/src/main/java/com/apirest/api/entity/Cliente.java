@@ -5,6 +5,8 @@ import jakarta.validation.constraints.*;
 import lombok.*;
 import org.hibernate.validator.constraints.br.CPF;
 
+import java.time.LocalDate;
+
 @Entity
 @Table(name = "clientes")
 @Data
@@ -34,6 +36,10 @@ public class Cliente {
     @CPF(message = "CPF inválido")
     @Column(nullable = false, unique = true, length = 11)
     private String cpf;
+
+    @Past(message = "A data de nascimento deve ser no passado.")
+    @Column(name = "data_nascimento")
+    private LocalDate dataNascimento;
 
     @Pattern(regexp = "^\\+?\\d{10,15}$", message = "O telefone deve conter apenas números e ter entre 10 e 15 dígitos.")
     private String telefone;

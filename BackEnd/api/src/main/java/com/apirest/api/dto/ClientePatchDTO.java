@@ -1,11 +1,15 @@
 package com.apirest.api.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.Past;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import java.time.LocalDate;
 
 @Data
 @NoArgsConstructor
@@ -19,6 +23,9 @@ public class ClientePatchDTO {
     @Email(message = "E-mail inválido.")
     private String email;
 
+    @Past(message = "A data de nascimento deve ser uma data no passado.")
+    @JsonFormat(pattern = "dd-MM-yyyy", shape = JsonFormat.Shape.STRING)
+    private LocalDate dataNascimento;
 
     @Pattern(regexp = "^\\+?\\d{10,15}$", message = "O telefone deve conter apenas números e ter entre 10 e 15 dígitos.")
     private String telefone;

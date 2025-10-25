@@ -11,6 +11,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
+import java.time.Period;
 import java.util.List;
 
 @Service
@@ -44,6 +46,14 @@ public class ClienteService {
         if (repository.existsByLogin(dto.getLogin()) || funcionarioRepository.existsByLogin(dto.getLogin()))
             throw new RuntimeException("Login já cadastrado.");
 
+        // validação de idade mínima
+        if (dto.getDataNascimento() != null) {
+            int idade = Period.between(dto.getDataNascimento(), LocalDate.now()).getYears();
+            if (idade < 9) {
+                throw new RuntimeException("O cliente deve ter pelo menos 9 anos de idade.");
+            }
+        }
+
         // criptografa senha
         String senhaHash = passwordEncoder.encode(dto.getSenha());
 
@@ -51,6 +61,7 @@ public class ClienteService {
                 .nomeCompleto(dto.getNomeCompleto())
                 .email(dto.getEmail())
                 .cpf(dto.getCpf())
+                .dataNascimento(dto.getDataNascimento())
                 .telefone(dto.getTelefone())
                 .login(dto.getLogin())
                 .senhaCriptografada(senhaHash)
@@ -64,6 +75,7 @@ public class ClienteService {
                 salvo.getNomeCompleto(),
                 salvo.getEmail(),
                 salvo.getCpf(),
+                salvo.getDataNascimento(),
                 salvo.getTelefone(),
                 salvo.getLogin(),
                 salvo.isAtivo()
@@ -73,12 +85,19 @@ public class ClienteService {
     @Transactional
     public Cliente criarClienteDeFuncionario(ClienteDTO dto) {
 
+        if (dto.getDataNascimento() != null) {
+            int idade = Period.between(dto.getDataNascimento(), LocalDate.now()).getYears();
+            if (idade < 18) {
+                throw new RuntimeException("O cliente deve ter pelo menos 18 anos de idade.");
+            }
+        }
         String senhaHash = passwordEncoder.encode(dto.getSenha());
 
         Cliente cliente = Cliente.builder()
                 .nomeCompleto(dto.getNomeCompleto())
                 .email(dto.getEmail())
                 .cpf(dto.getCpf())
+                .dataNascimento(dto.getDataNascimento())
                 .telefone(dto.getTelefone())
                 .login(dto.getLogin())
                 .senhaCriptografada(senhaHash)
@@ -147,6 +166,7 @@ public class ClienteService {
                 salvo.getNomeCompleto(),
                 salvo.getEmail(),
                 salvo.getCpf(),
+                salvo.getDataNascimento(),
                 salvo.getTelefone(),
                 salvo.getLogin(),
                 salvo.isAtivo()
@@ -158,7 +178,9 @@ public class ClienteService {
     public ClienteResponseDTO atualizarParcial(Long id, ClientePatchDTO patchDto) {
         // Busca o cliente existente no banco de dados
         Cliente clienteExistente = buscarPorId(id);
+
         // Aplica as atualizações parciais
+        // Atualiza o nome completo se fornecido
         if (patchDto.getNomeCompleto() != null && !patchDto.getNomeCompleto().isBlank()) {
             clienteExistente.setNomeCompleto(patchDto.getNomeCompleto());
         }
@@ -176,6 +198,7 @@ public class ClienteService {
             }
             clienteExistente.setEmail(patchDto.getEmail());
         }
+
         // Atualiza o telefone se fornecido
         if (patchDto.getTelefone() != null && !patchDto.getTelefone().isBlank()) {
             clienteExistente.setTelefone(patchDto.getTelefone());
@@ -207,6 +230,7 @@ public class ClienteService {
                 salvo.getNomeCompleto(),
                 salvo.getEmail(),
                 salvo.getCpf(),
+                salvo.getDataNascimento(),
                 salvo.getTelefone(),
                 salvo.getLogin(),
                 salvo.isAtivo()
