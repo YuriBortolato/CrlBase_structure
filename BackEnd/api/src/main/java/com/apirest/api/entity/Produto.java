@@ -57,6 +57,12 @@ public class Produto {
     @Column(name = "quantidade_estoque", nullable = false)
     private Integer quantidadeEmEstoque;
 
+    // quantidade mínima para alerta de estoque baixo
+    @NotNull(message = "A quantidade mínima em estoque é obrigatória.")
+    @Min(value = 0, message = "A quantidade mínima em estoque não pode ser negativa.")
+    @Column(name = "quantidade_minima", nullable = false)
+    private Integer quantidadeMinima;
+
     // Indica se o produto está ativo ou inativo
     @Column(nullable = false)
     private boolean ativo = true;

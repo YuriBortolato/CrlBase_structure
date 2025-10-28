@@ -52,6 +52,7 @@ public class ProdutoService {
                 .valorVenda(dto.getValorVenda())
                 .descricao(dto.getDescricao())
                 .quantidadeEmEstoque(dto.getQuantidadeEmEstoque())
+                .quantidadeMinima(dto.getQuantidadeMinima())
                 .ativo(true)
                 .build();
 
@@ -67,6 +68,7 @@ public class ProdutoService {
             throw new RuntimeException("O valor de venda deve ser maior que o valor de custo.");
         }
 
+        // Verifica se o novo nome já existe para outro produto ativo
         Produto produto = findProdutoAtivoById(idProduto);
 
         produto.setNome(dto.getNome().trim().toUpperCase());
@@ -77,6 +79,7 @@ public class ProdutoService {
         produto.setValorCusto(dto.getValorCusto());
         produto.setValorVenda(dto.getValorVenda());
         produto.setQuantidadeEmEstoque(dto.getQuantidadeEmEstoque());
+        produto.setQuantidadeMinima(dto.getQuantidadeMinima());
 
         Produto salvo = produtoRepository.save(produto);
         return toResponseDTO(salvo);
@@ -93,6 +96,7 @@ public class ProdutoService {
         produto.setValorCusto(dto.getValorCusto());
         produto.setValorVenda(dto.getValorVenda());
         produto.setQuantidadeEmEstoque(dto.getQuantidadeEmEstoque());
+        produto.setQuantidadeMinima(dto.getQuantidadeMinima());
         produto.setDescricao(dto.getDescricao());
 
         Produto salvo = produtoRepository.save(produto);
@@ -140,17 +144,21 @@ public class ProdutoService {
         dto.setCategoria(p.getCategoria().getNome());
         dto.setValorVenda(p.getValorVenda());
         dto.setQuantidadeEmEstoque(p.getQuantidadeEmEstoque());
-        dto.setStatusEstoque(statusEstoque(p.getQuantidadeEmEstoque()));
-        dto.setAtivo(p.isAtivo());
+        dto.setStatusEstoque(statusEstoque(p.getQuantidadeEmEstoque(), p.getQuantidadeMinima()));        dto.setAtivo(p.isAtivo());
         return dto;
     }
         // Define o status do estoque com base na quantidade
-        private String statusEstoque(Integer quantidade) {
+        private String statusEstoque(Integer quantidade, Integer quantidadeMinima) {
             if (quantidade == null || quantidade <= 0) {
                 return "Esgotado";
             }
-            if (quantidade <= 10) {
-                return "Quase Esgotado";
+            // Verifica se a quantidade mínima está definida
+            if (quantidadeMinima == null) { // Se não estiver definida, considera apenas a quantidade atual
+                return (quantidade <= 10) ? "Quase Esgotado" : "Disponível";
+
+            }
+                if (quantidade <= quantidadeMinima) {
+                    return "Quase Esgotado";
             }
             return "Disponível";
         }

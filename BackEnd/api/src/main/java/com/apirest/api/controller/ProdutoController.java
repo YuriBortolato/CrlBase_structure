@@ -19,6 +19,7 @@ public class ProdutoController {
     private final ProdutoService service;
 
 
+    // POST para criar um novo produto
     @PostMapping
     public ResponseEntity<ProdutoResponseDTO> criar(@Valid @RequestBody ProdutoDTO dto) {
         ProdutoResponseDTO response = service.criarProduto(dto);

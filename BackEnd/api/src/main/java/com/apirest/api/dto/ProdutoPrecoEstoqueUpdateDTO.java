@@ -27,6 +27,10 @@ public class ProdutoPrecoEstoqueUpdateDTO {
     @Min(value = 0)
     private Integer quantidadeEmEstoque;
 
+    @NotNull(message = "A quantidade mínima é obrigatória.")
+    @Min(value = 0, message = "A quantidade mínima em estoque não pode ser negativa.")
+    private Integer quantidadeMinima;
+
     @NotBlank(message = "A descrição é obrigatória.")
     @Size(min = 5, max = 500, message = "A descrição deve ter entre 5 e 500 caracteres.")
     private String descricao;
