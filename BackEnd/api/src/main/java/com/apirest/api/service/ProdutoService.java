@@ -28,7 +28,7 @@ public class ProdutoService {
     private static final Set<String> PERMISSAO_CRIAR = Set.of("DONO", "GERENTE", "LIDER_VENDA", "ADMIN");
     private static final Set<String> PERMISSAO_EDITAR_INFO = Set.of("DONO", "GERENTE", "LIDER_VENDA", "ADMIN", "RECEPCIONISTA");
     private static final Set<String> PERMISSAO_EDITAR_PRECO_ESTOQUE_DESC = Set.of("DONO", "GERENTE", "LIDER_VENDA", "ADMIN");
-    private static final Set<String> PERMISSAO_DELETAR = Set.of("DONO", "GERENTE", "ADMIN");
+    private static final Set<String> PERMISSAO_DELETAR = Set.of("DONO", "GERENTE", "LIDER_VENDA", "ADMIN");
 
     @Transactional
     public ProdutoResponseDTO criarProduto(ProdutoDTO dto) {
@@ -68,8 +68,19 @@ public class ProdutoService {
             throw new RuntimeException("O valor de venda deve ser maior que o valor de custo.");
         }
 
-        // Verifica se o novo nome já existe para outro produto ativo
-        Produto produto = findProdutoAtivoById(idProduto);
+        // Busca o produto, mesmo que esteja inativo
+        Produto produto = findProdutoById(idProduto);
+
+        if (dto.getAtivo() != null && dto.getAtivo() && !produto.isAtivo()) {
+            // Verifica permissão para reativar
+            validarPermissao(dto.getIdFuncionario(), PERMISSAO_DELETAR, "reativar produto");
+
+            // Verifica se já existe um produto ativo com o mesmo nome
+            if (produtoRepository.existsByNomeAndAtivoTrue(produto.getNome())) {
+                throw new RuntimeException("Não é possível reativar, pois já existe um produto ativo com o nome: " + produto.getNome());
+            }
+            produto.setAtivo(true);
+        }
 
         produto.setNome(dto.getNome().trim().toUpperCase());
         produto.setDescricao(dto.getDescricao());
@@ -92,7 +103,19 @@ public class ProdutoService {
             throw new RuntimeException("O valor de venda deve ser maior que o valor de custo.");
         }
 
-        Produto produto = findProdutoAtivoById(idProduto);
+        // Busca o produto, mesmo que esteja inativo
+        Produto produto = findProdutoById(idProduto);
+
+        if (dto.getAtivo() != null && dto.getAtivo() && !produto.isAtivo()) {
+            // Verifica permissão para reativar
+            validarPermissao(dto.getIdFuncionario(), PERMISSAO_DELETAR, "reativar produto");
+
+            if (produtoRepository.existsByNomeAndAtivoTrue(produto.getNome())) {
+                throw new RuntimeException("Não é possível reativar, pois já existe um produto ativo com o nome: " + produto.getNome());
+            }
+            produto.setAtivo(true);
+        }
+
         produto.setValorCusto(dto.getValorCusto());
         produto.setValorVenda(dto.getValorVenda());
         produto.setQuantidadeEmEstoque(dto.getQuantidadeEmEstoque());
@@ -118,8 +141,13 @@ public class ProdutoService {
     }
 
     public ProdutoResponseDTO getProdutoResponseById(Long id) {
-        Produto produto = findProdutoAtivoById(id);
+        Produto produto = findProdutoById(id);
         return toResponseDTO(produto);
+    }
+
+    private Produto findProdutoById(Long id) {
+        return produtoRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Produto não encontrado. ID: " + id));
     }
 
     private Produto findProdutoAtivoById(Long id) {
@@ -153,11 +181,9 @@ public class ProdutoService {
                 return "Esgotado";
             }
             // Verifica se a quantidade mínima está definida
-            if (quantidadeMinima == null) { // Se não estiver definida, considera apenas a quantidade atual
-                return (quantidade <= 10) ? "Quase Esgotado" : "Disponível";
+            int min = (quantidadeMinima != null && quantidadeMinima >= 0) ? quantidadeMinima : 10;
 
-            }
-                if (quantidade <= quantidadeMinima) {
+                if (quantidade <= min) {
                     return "Quase Esgotado";
             }
             return "Disponível";

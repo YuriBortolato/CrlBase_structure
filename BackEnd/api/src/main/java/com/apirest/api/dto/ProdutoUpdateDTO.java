@@ -42,4 +42,6 @@ public class ProdutoUpdateDTO {
     @NotNull(message = "A quantidade mínima é obrigatória.")
     @Min(value = 0, message = "A quantidade mínima em estoque não pode ser negativa.")
     private Integer quantidadeMinima;
+
+    private Boolean ativo;
 }

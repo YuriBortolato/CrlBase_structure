@@ -34,4 +34,6 @@ public class ProdutoPrecoEstoqueUpdateDTO {
     @NotBlank(message = "A descrição é obrigatória.")
     @Size(min = 5, max = 500, message = "A descrição deve ter entre 5 e 500 caracteres.")
     private String descricao;
+
+    private Boolean ativo;
 }
