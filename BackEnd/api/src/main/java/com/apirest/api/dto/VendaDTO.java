@@ -1,5 +1,6 @@
 package com.apirest.api.dto;
 
+import com.apirest.api.entity.MetodoPagamento;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import lombok.*;
@@ -20,9 +21,8 @@ public class VendaDTO {
     @NotEmpty(message = "A venda deve conter ao menos um item")
     private List<@Valid VendaItemDTO> itens;
 
-    @NotBlank(message = "O método de pagamento é obrigatório")
-    @Size(max = 50, message = "Método de pagamento deve ter no máximo 50 caracteres")
-    private String metodoPagamento;
+    @NotNull(message = "O método de pagamento é obrigatório")
+    private MetodoPagamento metodoPagamento;
 
     @Size(max = 255, message = "Observações não podem ter mais que 255 caracteres")
     private String observacoes;

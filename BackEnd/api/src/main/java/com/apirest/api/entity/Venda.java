@@ -46,10 +46,17 @@ public class Venda {
     @Column(name = "data_venda", nullable = false, updatable = false)
     private LocalDateTime dataVenda;
 
-    // Metodo de pagamento utilizado na venda
-    @NotBlank(message = "O método de pagamento é obrigatório.")
+    // Metodo de pagamento (Enum)
+    @Enumerated(EnumType.STRING)
     @Column(name = "metodo_pagamento", nullable = false, length = 50)
-    private String metodoPagamento;
+    @NotNull(message = "O método de pagamento é obrigatório.")
+    private MetodoPagamento metodoPagamento;
+
+    // Status da venda (Enum)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status_venda", nullable = false, length = 20)
+    @Builder.Default
+    private StatusVenda statusVenda = StatusVenda.REALIZADA;
 
     // Observações adicionais sobre a venda
     @Size(max = 255, message = "Observações não podem ter mais de 255 caracteres.")
@@ -59,6 +66,8 @@ public class Venda {
     // Define a data da venda antes de persistir
     @PrePersist
     public void prePersist() {
-        dataVenda = LocalDateTime.now();
+        if (dataVenda == null) {
+            dataVenda = LocalDateTime.now();
+        }
     }
 }

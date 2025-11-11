@@ -17,6 +17,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -27,15 +28,25 @@ public class VendaService {
     private final FuncionarioRepository funcionarioRepository;
     private final ProdutoRepository produtoRepository;
 
+    // Definição das permissões necessárias para gerenciar vendas
+    private static final Set<String> PERMISSAO_GERENCIAR_VENDA = Set.of("DONO", "GERENTE", "LIDER_VENDA", "ADMIN");
+
     @Transactional
     public VendaResponseDTO registrarVenda(VendaDTO dto) {
 
-        // busca produto, funcionário e cliente
+        // busca produto, validando funcionário ativo
         Funcionario funcionario = funcionarioRepository.findById(dto.getIdFuncionario())
                 .orElseThrow(() -> new RuntimeException("Funcionário com ID " + dto.getIdFuncionario() + " não encontrado"));
+        if (!funcionario.isAtivo()) {
+            throw new RuntimeException("Funcionário " + funcionario.getNomeCompleto() + " está inativo.");
+        }
 
+        // busca produto, validando cliente ativo
         Cliente cliente = clienteRepository.findById(dto.getIdCliente())
                 .orElseThrow(() -> new RuntimeException("Cliente com ID " + dto.getIdCliente() + " não encontrado"));
+        if (!cliente.isAtivo()) {
+            throw new RuntimeException("Cliente " + cliente.getNomeCompleto() + " está inativo.");
+        }
 
         // Cria a venda
         Venda venda = new Venda();
@@ -44,6 +55,7 @@ public class VendaService {
         venda.setMetodoPagamento(dto.getMetodoPagamento());
         venda.setObservacoes(dto.getObservacoes());
         venda.setDataVenda(LocalDateTime.now());
+        venda.setStatusVenda(StatusVenda.REALIZADA);
 
         BigDecimal valorTotalVenda = BigDecimal.ZERO;
         List<VendaItem> itensVenda = new ArrayList<>();
@@ -55,7 +67,8 @@ public class VendaService {
 
             // Verifica estoque disponível
             if (produto.getQuantidadeEmEstoque() < itemDTO.getQuantidade()) {
-                throw new RuntimeException("Estoque insuficiente para o produto: " + produto.getNome());
+                throw new RuntimeException("Estoque insuficiente para o produto: " + produto.getNome() +
+                        " (Disponível: " + produto.getQuantidadeEmEstoque() + ", Pedido: " + itemDTO.getQuantidade() + ")");
             }
 
             // Atualiza o estoque do produto
@@ -88,17 +101,105 @@ public class VendaService {
     }
 
     // Listar todas as vendas
-    public List<VendaResponseDTO> listarVendas() {
-        return vendaRepository.findAll().stream()
+    public List<VendaResponseDTO> listarVendas(StatusVenda status) {
+        List<Venda> vendas;
+        if (status != null) {
+            vendas = vendaRepository.findByStatusVenda(status);
+        } else {
+            vendas = vendaRepository.findAll();
+        }
+        return vendas.stream()
                 .map(this::toResponseDTO)
                 .collect(Collectors.toList());
     }
 
     // Buscar venda por ID
     public VendaResponseDTO buscarPorId(Long id) {
-        Venda venda = vendaRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Venda com ID " + id + " não encontrada"));
+        Venda venda = findVendaById(id);
         return toResponseDTO(venda);
+    }
+
+    // Cancelar Venda (DELETE Lógico)
+    @Transactional
+    public VendaResponseDTO cancelarVenda(Long idVenda, Long idFuncionario) {
+        validarPermissao(idFuncionario, PERMISSAO_GERENCIAR_VENDA, "cancelar venda");
+
+        Venda venda = findVendaById(idVenda);
+        if (venda.getStatusVenda() == StatusVenda.CANCELADA) {
+            throw new RuntimeException("Venda " + idVenda + " já está cancelada.");
+        }
+
+        // Lógica de Estorno
+        for (VendaItem item : venda.getItens()) {
+            Produto produto = item.getProduto();
+            // Verifica se o produto ainda existe
+            if (produto != null) {
+                // se o produto ainda está ativo
+                if(produtoRepository.existsById(produto.getIdProduto())) {
+                    produto.setQuantidadeEmEstoque(produto.getQuantidadeEmEstoque() + item.getQuantidade());
+                    produtoRepository.save(produto);
+                }
+            }
+        }
+        venda.setStatusVenda(StatusVenda.CANCELADA);
+        Venda vendaSalva = vendaRepository.save(venda);
+        return toResponseDTO(vendaSalva);
+    }
+
+    // Reativar Venda (PATCH)
+    @Transactional
+    public VendaResponseDTO reativarVenda(Long idVenda, Long idFuncionario) {
+        validarPermissao(idFuncionario, PERMISSAO_GERENCIAR_VENDA, "reativar venda");
+
+        Venda venda = findVendaById(idVenda);
+        if (venda.getStatusVenda() == StatusVenda.REALIZADA) {
+            throw new RuntimeException("Venda " + idVenda + " já está realizada.");
+        }
+
+        // Lógica de Débito: Verifica e remove os itens do estoque NOVAMENTE
+        for (VendaItem item : venda.getItens()) {
+            Produto produto = item.getProduto();
+
+            // Re-valida o produto
+            if (produto == null) {
+                throw new RuntimeException("Não é possível reativar: O produto associado ao item " + item.getIdVendaItem() + " não existe mais.");
+            }
+
+            // Busca o produto atualizado para garantir que está ativo
+            Produto produtoAtivo = produtoRepository.findByIdProdutoAndAtivoTrue(produto.getIdProduto())
+                    .orElseThrow(() -> new RuntimeException("Não é possível reativar: O produto " + produto.getNome() + " está inativo ou foi removido."));
+
+
+            if (produtoAtivo.getQuantidadeEmEstoque() < item.getQuantidade()) {
+                throw new RuntimeException("Não é possível reativar: Estoque insuficiente para o produto " + produtoAtivo.getNome() +
+                        " (Disponível: " + produtoAtivo.getQuantidadeEmEstoque() + ", Necessário: " + item.getQuantidade() + ")");
+            }
+
+            produtoAtivo.setQuantidadeEmEstoque(produtoAtivo.getQuantidadeEmEstoque() - item.getQuantidade());
+            produtoRepository.save(produtoAtivo);
+        }
+
+        venda.setStatusVenda(StatusVenda.REALIZADA);
+        Venda vendaSalva = vendaRepository.save(venda);
+        return toResponseDTO(vendaSalva);
+    }
+
+    // Busca Venda (ativa ou cancelada)
+    private Venda findVendaById(Long id) {
+        return vendaRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Venda com ID " + id + " não encontrada"));
+    }
+
+    // Validação de Permissão
+    private void validarPermissao(Long idFuncionario, Set<String> cargosPermitidos, String acao) {
+        Funcionario funcionario = funcionarioRepository.findById(idFuncionario)
+                .orElseThrow(() -> new RuntimeException("Funcionário não encontrado"));
+        if (funcionario.getCargo() == null) {
+            throw new RuntimeException("Funcionário com cargo nulo. Permissão negada.");
+        }
+        if (!cargosPermitidos.contains(funcionario.getCargo().name())) {
+            throw new RuntimeException("Permissão negada: cargo (" + funcionario.getCargo().name() + ") não autorizado a " + acao);
+        }
     }
 
     // Metodo auxiliar para converter Venda em VendaResponseDTO
@@ -125,6 +226,7 @@ public class VendaService {
                 venda.getValorTotal(),
                 venda.getDataVenda(),
                 venda.getMetodoPagamento(),
+                venda.getStatusVenda(),
                 venda.getObservacoes()
         );
     }

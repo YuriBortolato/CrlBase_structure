@@ -39,4 +39,22 @@ public class VendaController {
         VendaResponseDTO venda = vendaService.buscarPorId(id);
         return ResponseEntity.ok(venda);
     }
+
+    // NOVO: Cancelar (Delete Lógico)
+    @DeleteMapping("/{idVenda}/{idFuncionario}")
+    public ResponseEntity<VendaResponseDTO> cancelarVenda(
+            @PathVariable Long idVenda,
+            @PathVariable Long idFuncionario) {
+        VendaResponseDTO vendaCancelada = vendaService.cancelarVenda(idVenda, idFuncionario);
+        return ResponseEntity.ok(vendaCancelada);
+    }
+
+    // NOVO: Reativar Venda
+    @PatchMapping("/{idVenda}/reativar/{idFuncionario}")
+    public ResponseEntity<VendaResponseDTO> reativarVenda(
+            @PathVariable Long idVenda,
+            @PathVariable Long idFuncionario) {
+        VendaResponseDTO vendaReativada = vendaService.reativarVenda(idVenda, idFuncionario);
+        return ResponseEntity.ok(vendaReativada);
+    }
 }
