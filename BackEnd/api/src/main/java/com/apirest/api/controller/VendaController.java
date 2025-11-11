@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import com.apirest.api.entity.StatusVenda;
 
 import java.util.List;
 
@@ -28,8 +29,9 @@ public class VendaController {
 
     // Listar todas as vendas
     @GetMapping
-    public ResponseEntity<List<VendaResponseDTO>> listarTodasAsVendas() {
-        List<VendaResponseDTO> vendas = vendaService.listarVendas();
+    public ResponseEntity<List<VendaResponseDTO>> listarVendas(
+            @RequestParam(required = false) StatusVenda status) {
+        List<VendaResponseDTO> vendas = vendaService.listarVendas(status);
         return ResponseEntity.ok(vendas);
     }
 
