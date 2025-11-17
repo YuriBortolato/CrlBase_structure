@@ -21,8 +21,9 @@ public class Produto {
 
     // nome do produto
     @NotBlank(message = "O nome do produto é obrigatório.")
-    @Pattern(regexp = "^[A-Za-zÀ-ÿ0-9\\s]{3,100}$", message = "O nome deve conter entre 3 e 100 caracteres e apenas letras, números e espaços.")
-    @Column(nullable = false, length = 100, unique = true)
+    @Pattern(regexp = "^[A-Za-zÀ-ÿ0-9\\s.,'\"()&/@-]{3,255}$",
+            message = "O nome deve conter entre 3 e 255 caracteres e não deve incluir símbolos de controle.")
+    @Column(nullable = false, length = 255, unique = true)
     private String nome;
 
     // categoria do produto

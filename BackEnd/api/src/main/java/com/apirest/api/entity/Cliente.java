@@ -21,7 +21,7 @@ public class Cliente {
     private Long idCliente;
 
     @NotBlank(message = "O nome completo é obrigatório.")
-    @Pattern(regexp = "^[A-Za-zÀ-ÿ\\s]{3,50}$", message = "O nome deve conter apenas letras e ter entre 3 e 50 caracteres.")
+    @Pattern(regexp = "^[A-Za-zÀ-ÿ\\s]{3,255}$", message = "O nome deve conter apenas letras e ter entre 3 e 255 caracteres.")
     @Column(name = "nome_completo", nullable = false)
     private String nomeCompleto;
 
