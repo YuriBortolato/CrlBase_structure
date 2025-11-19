@@ -9,15 +9,17 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.apirest.api.entity.FiltroPeriodo;
-import java.time.temporal.ChronoUnit;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
+import java.time.temporal.TemporalField;
+import java.time.temporal.WeekFields;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -34,7 +36,7 @@ public class CaixaService {
             Cargo.DONO, Cargo.GERENTE, Cargo.LIDER_VENDA, Cargo.ADMIN
     );
 
-    // Abertura de Caixa
+    //  Abertura de Caixa
     @Transactional
     public Caixa abrirCaixa(CaixaAberturaDTO dto) {
         log.info("Tentativa de abertura de caixa para funcionário ID: {}", dto.getIdFuncionario());
@@ -69,9 +71,8 @@ public class CaixaService {
             throw new RuntimeException("Este caixa já está fechado.");
         }
 
-        //  Calcular total do SISTEMA (Vendas)
+        // Calcular total do SISTEMA (Vendas)
         BigDecimal totalVendasSistema = BigDecimal.ZERO;
-
         for (Venda v : caixa.getVendas()) {
             if (v.getStatusVenda() == StatusVenda.REALIZADA) {
                 totalVendasSistema = totalVendasSistema.add(v.getValorTotal());
@@ -115,17 +116,14 @@ public class CaixaService {
         return caixaRepository.findByFiltros(idFuncionario, status, inicio, fim);
     }
 
-
-
-
-    //  RELATÓRIO AVANÇADO
+    // RELATÓRIO AVANÇADO (Com filtros complexos)
     public Map<String, Object> gerarRelatorioAvancado(
-            Long idSolicitante,    // Quem está pedindo o relatório (Logado)
-            Long idFuncionarioAlvo,// De quem ele quer ver (Null = Todos)
-            FiltroPeriodo periodo, // HOJE, ONTEM, ETC
-            StatusCaixa status,    // ABERTO, FECHADO, NULL (Todos)
-            LocalDate dataInicio,  // Usado se periodo == CUSTOM
-            LocalDate dataFim      // Usado se periodo == CUSTOM
+            Long idSolicitante,
+            Long idFuncionarioAlvo,
+            FiltroPeriodo periodo,
+            StatusCaixa status,
+            LocalDate dataInicio,
+            LocalDate dataFim
     ) {
         // Validar Solicitante
         Funcionario solicitante = funcionarioRepository.findById(idSolicitante)
@@ -133,24 +131,22 @@ public class CaixaService {
 
         // Regra de Permissão (RBAC) usando a Constante
         boolean isAltoEscalao = PERMISSAO_CARGO_ALTO.contains(solicitante.getCargo());
-
         Long idFiltroFinal = idFuncionarioAlvo;
 
         if (!isAltoEscalao) {
-            // Se for baixo escalão (ex: Recepcionista), FORÇA a ver apenas o dele
+            if (idFuncionarioAlvo != null && !idFuncionarioAlvo.equals(solicitante.getIdFuncionario())) {
+                throw new RuntimeException("ACESSO NEGADO: Você não tem permissão para ver relatórios de outros funcionários.");
+            }
             idFiltroFinal = solicitante.getIdFuncionario();
         }
-        // Se for Alto Escalão e idFuncionarioAlvo for NULL, busca de TODOS (padrão do repository)
 
         // Cálculo de Datas
         LocalDateTime inicio;
         LocalDateTime fim;
         LocalDate hoje = LocalDate.now();
+        TemporalField fieldISO = WeekFields.of(Locale.getDefault()).dayOfWeek();
 
-        // Auxiliar para calcular dias da semana
-        java.time.temporal.TemporalField fieldISO = java.time.temporal.WeekFields.of(java.util.Locale.getDefault()).dayOfWeek();
-
-        if (periodo == null) periodo = FiltroPeriodo.HOJE; // Default
+        if (periodo == null) periodo = FiltroPeriodo.HOJE; // default
 
         switch (periodo) {
             case ONTEM -> {
@@ -182,25 +178,17 @@ public class CaixaService {
                 inicio = dataInicio.atStartOfDay();
                 fim = dataFim.atTime(LocalTime.MAX);
             }
-
             default -> { // HOJE
                 inicio = hoje.atStartOfDay();
                 fim = hoje.atTime(LocalTime.MAX);
             }
         }
-
-        // 4. Buscar no Banco
+        // Buscar Caixas com os Filtros Aplicados
         List<Caixa> caixas = caixaRepository.findByFiltros(idFiltroFinal, status, inicio, fim);
-
-        // 5. Calcular Totais (Dashboard)
         DashboardResumoDTO resumo = calcularSomaDeCaixas(caixas);
+        List<CaixaResponseDTO> listaDTOs = caixas.stream().map(this::toResponseDTO).toList();
 
-        // 6. Converter Lista para DTO
-        List<CaixaResponseDTO> listaDTOs = caixas.stream()
-                .map(this::toResponseDTO)
-                .toList();
-
-        // 7. Montar Resposta
+        // Montar Resposta
         Map<String, Object> response = new HashMap<>();
         response.put("periodoDescricao", periodo.toString());
         response.put("dataInicio", inicio);
@@ -210,20 +198,18 @@ public class CaixaService {
                 "solicitadoPor", solicitante.getNomeCompleto(),
                 "cargoSolicitante", solicitante.getCargo()
         ));
-        response.put("resumo", resumo); // Totais calculados
-        response.put("listaCaixas", listaDTOs); // Lista detalhada
+        response.put("resumo", resumo); // Adiciona o resumo calculado
+        response.put("listaCaixas", listaDTOs); // Adiciona a lista de caixas convertida
 
         return response;
     }
-    //
-
 
     // Resumo Dashboard (Para a tela de admin)
     public DashboardResumoDTO calcularResumoDashboard(List<Caixa> caixasFiltrados) {
         return calcularSomaDeCaixas(caixasFiltrados);
     }
 
-    //  Relatório Individual (Para o funcionário ver o dele)
+    // Relatório Individual (Para o funcionário ver o dele)
     public RelatorioIndividualDTO gerarRelatorioIndividual(Long idFuncionario) {
         Funcionario funcionario = funcionarioRepository.findById(idFuncionario)
                 .orElseThrow(() -> new RuntimeException("Funcionário não encontrado"));
@@ -244,13 +230,15 @@ public class CaixaService {
 
         return RelatorioIndividualDTO.builder()
                 .nomeFuncionario(funcionario.getNomeCompleto())
-                .totalGeralHoje(resumoHoje.getTotalGeral())
+                // Dados de Hoje
+                .totalGeralHoje(resumoHoje.getTotalConferido()) // ATUALIZADO: Usa o TotalConferido
                 .dinheiroHoje(resumoHoje.getTotalDinheiro())
                 .pixHoje(resumoHoje.getTotalPix())
                 .debitoHoje(resumoHoje.getTotalDebito())
                 .creditoHoje(resumoHoje.getTotalCredito())
                 .crediarioHoje(resumoHoje.getTotalCrediario())
-                .totalGeralMes(resumoMes.getTotalGeral())
+                // Dados do Mês
+                .totalGeralMes(resumoMes.getTotalConferido()) // ATUALIZADO: Usa o TotalConferido
                 .dinheiroMes(resumoMes.getTotalDinheiro())
                 .pixMes(resumoMes.getTotalPix())
                 .debitoMes(resumoMes.getTotalDebito())
@@ -279,7 +267,7 @@ public class CaixaService {
                 .build();
     }
 
-    //  Relatório Global por Data Específica (Dia X)
+    // Relatório Global por Data Específica (Dia X)
     public RelatorioPeriodoDTO gerarRelatorioDoDia(LocalDate data) {
         LocalDateTime inicio = data.atStartOfDay();
         LocalDateTime fim = data.atTime(LocalTime.MAX);
@@ -289,7 +277,7 @@ public class CaixaService {
 
         return RelatorioPeriodoDTO.builder()
                 .periodo(data.toString())
-                .totalGeral(soma.getTotalGeral())
+                .totalGeral(soma.getTotalConferido())
                 .totalDinheiro(soma.getTotalDinheiro())
                 .totalPix(soma.getTotalPix())
                 .totalDebito(soma.getTotalDebito())
@@ -310,7 +298,7 @@ public class CaixaService {
 
         return RelatorioPeriodoDTO.builder()
                 .periodo(mes + "/" + ano)
-                .totalGeral(soma.getTotalGeral())
+                .totalGeral(soma.getTotalConferido())
                 .totalDinheiro(soma.getTotalDinheiro())
                 .totalPix(soma.getTotalPix())
                 .totalDebito(soma.getTotalDebito())
@@ -323,32 +311,72 @@ public class CaixaService {
     // --- MÉTODOS AUXILIARES PRIVADOS ---
 
     private DashboardResumoDTO calcularSomaDeCaixas(List<Caixa> listaCaixas) {
+        // Conferido (Manual)
         BigDecimal dinheiro = BigDecimal.ZERO;
         BigDecimal pix = BigDecimal.ZERO;
         BigDecimal debito = BigDecimal.ZERO;
         BigDecimal credito = BigDecimal.ZERO;
         BigDecimal crediario = BigDecimal.ZERO;
-        BigDecimal quebra = BigDecimal.ZERO;
+
+        // Previsto (Sistema)
+        BigDecimal sisDinheiro = BigDecimal.ZERO;
+        BigDecimal sisPix = BigDecimal.ZERO;
+        BigDecimal sisDebito = BigDecimal.ZERO;
+        BigDecimal sisCredito = BigDecimal.ZERO;
+        BigDecimal sisCrediario = BigDecimal.ZERO;
+
+        BigDecimal previstoSistemaTotal = BigDecimal.ZERO;
+        BigDecimal quebraTotal = BigDecimal.ZERO;
 
         for (Caixa c : listaCaixas) {
+            // Soma Conferido
             if (c.getConferidoDinheiro() != null) dinheiro = dinheiro.add(c.getConferidoDinheiro());
             if (c.getConferidoPix() != null) pix = pix.add(c.getConferidoPix());
             if (c.getConferidoDebito() != null) debito = debito.add(c.getConferidoDebito());
             if (c.getConferidoCredito() != null) credito = credito.add(c.getConferidoCredito());
             if (c.getConferidoCrediario() != null) crediario = crediario.add(c.getConferidoCrediario());
-            if (c.getQuebraDeCaixa() != null) quebra = quebra.add(c.getQuebraDeCaixa());
+            if (c.getQuebraDeCaixa() != null) quebraTotal = quebraTotal.add(c.getQuebraDeCaixa());
+
+            // Soma Previsto (Itera sobre as vendas deste caixa)
+            if (c.getVendas() != null) {
+                for (Venda v : c.getVendas()) {
+                    if (v.getStatusVenda() == StatusVenda.REALIZADA) {
+                        previstoSistemaTotal = previstoSistemaTotal.add(v.getValorTotal());
+
+                        switch (v.getMetodoPagamento()) {
+                            case DINHEIRO -> sisDinheiro = sisDinheiro.add(v.getValorTotal());
+                            case PIX -> sisPix = sisPix.add(v.getValorTotal());
+                            case DEBITO -> sisDebito = sisDebito.add(v.getValorTotal());
+                            case CREDITO -> sisCredito = sisCredito.add(v.getValorTotal());
+                            case CREDIARIO -> sisCrediario = sisCrediario.add(v.getValorTotal());
+                        }
+                    }
+                }
+            }
         }
 
-        BigDecimal geral = dinheiro.add(pix).add(debito).add(credito).add(crediario);
+        BigDecimal totalConferidoGeral = dinheiro.add(pix).add(debito).add(credito).add(crediario);
 
         return DashboardResumoDTO.builder()
+                // Totais Gerais
+                .totalPrevisto(previstoSistemaTotal)
+                .totalConferido(totalConferidoGeral)
+                .totalQuebra(quebraTotal)
+
+                // Detalhes Conferidos
                 .totalDinheiro(dinheiro)
                 .totalPix(pix)
                 .totalDebito(debito)
                 .totalCredito(credito)
                 .totalCrediario(crediario)
-                .totalGeral(geral)
-                .totalQuebra(quebra)
+
+                // NOVO: Detalhes Previstos
+                .previstoDinheiro(sisDinheiro)
+                .previstoPix(sisPix)
+                .previstoDebito(sisDebito)
+                .previstoCredito(sisCredito)
+                .previstoCrediario(sisCrediario)
+
                 .build();
     }
 }

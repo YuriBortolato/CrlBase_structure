@@ -43,6 +43,13 @@ public class CaixaController {
         return ResponseEntity.ok(response);
     }
 
+    // Endpoint para gerar relatório individual de um funcionário
+    @GetMapping("/meu-resumo/{idFuncionario}")
+    public ResponseEntity<RelatorioIndividualDTO> meuResumo(@PathVariable Long idFuncionario) {
+        RelatorioIndividualDTO relatorio = caixaService.gerarRelatorioIndividual(idFuncionario);
+        return ResponseEntity.ok(relatorio);
+    }
+
     // Endpoint para listar caixas com filtros e resumo
     @GetMapping
     public ResponseEntity<Map<String, Object>> listarCaixas(
