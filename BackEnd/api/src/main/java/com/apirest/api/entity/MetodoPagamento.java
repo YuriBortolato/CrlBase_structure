@@ -8,7 +8,8 @@ public enum MetodoPagamento {
     PIX,
     DEBITO,
     CREDITO,
-    DINHEIRO;
+    DINHEIRO,
+    CREDIARIO;
 
     @JsonCreator
     public static MetodoPagamento fromString(String value) {
