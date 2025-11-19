@@ -2,6 +2,7 @@ package com.apirest.api.controller;
 
 import com.apirest.api.dto.*;
 import com.apirest.api.entity.Caixa;
+import com.apirest.api.entity.FiltroPeriodo;
 import com.apirest.api.entity.StatusCaixa;
 import com.apirest.api.service.CaixaService;
 import jakarta.validation.Valid;
@@ -69,27 +70,52 @@ public class CaixaController {
         return ResponseEntity.ok(response);
     }
 
-    //  Relatório do Dia
-    // Ex: GET /caixas/diario?data=2025-11-19
+    // RELATÓRIO AVANÇADO
+    @GetMapping("/relatorio")
+    public ResponseEntity<Map<String, Object>> getRelatorio(
+            @RequestHeader("id-solicitante") Long idSolicitante, // SIMULA LOGIN: Quem está pedindo?
+
+            @RequestParam(required = false) Long idFuncionario, // Filtro opcional
+            @RequestParam(required = false, defaultValue = "HOJE") FiltroPeriodo periodo, // HOJE, ONTEM, DIAS_7...
+            @RequestParam(required = false) StatusCaixa status, // ABERTO, FECHADO (Null = Todos)
+
+            // Apenas se periodo for CUSTOM
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataInicio,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataFim
+    ) {
+        // Validação simples de segurança para teste
+        if (idSolicitante == null) {
+            throw new RuntimeException("Header 'id-solicitante' é obrigatório para identificar quem pede o relatório.");
+        }
+
+        Map<String, Object> resultado = caixaService.gerarRelatorioAvancado(
+                idSolicitante,
+                idFuncionario,
+                periodo,
+                status,
+                dataInicio,
+                dataFim
+        );
+
+        return ResponseEntity.ok(resultado);
+    }
+
+    // Relatório do Dia
     @GetMapping("/diario")
     public ResponseEntity<RelatorioPeriodoDTO> relatorioDiario(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate data) {
-
         if (data == null) data = LocalDate.now();
         return ResponseEntity.ok(caixaService.gerarRelatorioDoDia(data));
     }
 
     // Relatório do Mês
-    // Ex: GET /caixas/mensal?mes=11&ano=2025
     @GetMapping("/mensal")
     public ResponseEntity<RelatorioPeriodoDTO> relatorioMensal(
             @RequestParam(defaultValue = "0") int mes,
             @RequestParam(defaultValue = "0") int ano) {
-
         LocalDate hoje = LocalDate.now();
         if (mes == 0) mes = hoje.getMonthValue();
         if (ano == 0) ano = hoje.getYear();
-
         return ResponseEntity.ok(caixaService.gerarRelatorioDoMes(ano, mes));
     }
 }

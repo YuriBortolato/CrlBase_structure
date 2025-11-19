@@ -8,13 +8,18 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.apirest.api.entity.FiltroPeriodo;
+import java.time.temporal.ChronoUnit;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -23,6 +28,11 @@ public class CaixaService {
 
     private final CaixaRepository caixaRepository;
     private final FuncionarioRepository funcionarioRepository;
+
+    // --- DEFINIÇÃO DOS CARGOS ---
+    private static final Set<Cargo> PERMISSAO_CARGO_ALTO = Set.of(
+            Cargo.DONO, Cargo.GERENTE, Cargo.LIDER_VENDA, Cargo.ADMIN
+    );
 
     // Abertura de Caixa
     @Transactional
@@ -100,10 +110,113 @@ public class CaixaService {
         return caixaRepository.save(caixa);
     }
 
-    // Listagem de Caixas com Filtros
+    // Listagem de Caixas com Filtros (Básico)
     public List<Caixa> listarComFiltros(Long idFuncionario, StatusCaixa status, LocalDateTime inicio, LocalDateTime fim) {
         return caixaRepository.findByFiltros(idFuncionario, status, inicio, fim);
     }
+
+
+
+
+    //  RELATÓRIO AVANÇADO
+    public Map<String, Object> gerarRelatorioAvancado(
+            Long idSolicitante,    // Quem está pedindo o relatório (Logado)
+            Long idFuncionarioAlvo,// De quem ele quer ver (Null = Todos)
+            FiltroPeriodo periodo, // HOJE, ONTEM, ETC
+            StatusCaixa status,    // ABERTO, FECHADO, NULL (Todos)
+            LocalDate dataInicio,  // Usado se periodo == CUSTOM
+            LocalDate dataFim      // Usado se periodo == CUSTOM
+    ) {
+        // Validar Solicitante
+        Funcionario solicitante = funcionarioRepository.findById(idSolicitante)
+                .orElseThrow(() -> new RuntimeException("Solicitante não encontrado"));
+
+        // Regra de Permissão (RBAC) usando a Constante
+        boolean isAltoEscalao = PERMISSAO_CARGO_ALTO.contains(solicitante.getCargo());
+
+        Long idFiltroFinal = idFuncionarioAlvo;
+
+        if (!isAltoEscalao) {
+            // Se for baixo escalão (ex: Recepcionista), FORÇA a ver apenas o dele
+            idFiltroFinal = solicitante.getIdFuncionario();
+        }
+        // Se for Alto Escalão e idFuncionarioAlvo for NULL, busca de TODOS (padrão do repository)
+
+        // Cálculo de Datas
+        LocalDateTime inicio;
+        LocalDateTime fim;
+        LocalDate hoje = LocalDate.now();
+
+        // Auxiliar para calcular dias da semana
+        java.time.temporal.TemporalField fieldISO = java.time.temporal.WeekFields.of(java.util.Locale.getDefault()).dayOfWeek();
+
+        if (periodo == null) periodo = FiltroPeriodo.HOJE; // Default
+
+        switch (periodo) {
+            case ONTEM -> {
+                inicio = hoje.minusDays(1).atStartOfDay();
+                fim = hoje.minusDays(1).atTime(LocalTime.MAX);
+            }
+            case ESTA_SEMANA -> { // Do primeiro dia desta semana até agora
+                inicio = hoje.with(fieldISO, 1).atStartOfDay();
+                fim = hoje.with(fieldISO, 7).atTime(LocalTime.MAX);
+            }
+            case SEMANA_PASSADA -> { // Semana anterior completa
+                LocalDate semanaPassada = hoje.minusWeeks(1);
+                inicio = semanaPassada.with(fieldISO, 1).atStartOfDay();
+                fim = semanaPassada.with(fieldISO, 7).atTime(LocalTime.MAX);
+            }
+            case ESTE_MES -> { // Do dia 1 até o último dia deste mês
+                inicio = hoje.withDayOfMonth(1).atStartOfDay();
+                fim = hoje.withDayOfMonth(hoje.lengthOfMonth()).atTime(LocalTime.MAX);
+            }
+            case MES_PASSADO -> { // Mês anterior completo
+                LocalDate mesPassado = hoje.minusMonths(1);
+                inicio = mesPassado.withDayOfMonth(1).atStartOfDay();
+                fim = mesPassado.withDayOfMonth(mesPassado.lengthOfMonth()).atTime(LocalTime.MAX);
+            }
+            case CUSTOM -> {
+                if (dataInicio == null || dataFim == null) {
+                    throw new RuntimeException("Para filtro CUSTOM, dataInicio e dataFim são obrigatórios.");
+                }
+                inicio = dataInicio.atStartOfDay();
+                fim = dataFim.atTime(LocalTime.MAX);
+            }
+
+            default -> { // HOJE
+                inicio = hoje.atStartOfDay();
+                fim = hoje.atTime(LocalTime.MAX);
+            }
+        }
+
+        // 4. Buscar no Banco
+        List<Caixa> caixas = caixaRepository.findByFiltros(idFiltroFinal, status, inicio, fim);
+
+        // 5. Calcular Totais (Dashboard)
+        DashboardResumoDTO resumo = calcularSomaDeCaixas(caixas);
+
+        // 6. Converter Lista para DTO
+        List<CaixaResponseDTO> listaDTOs = caixas.stream()
+                .map(this::toResponseDTO)
+                .toList();
+
+        // 7. Montar Resposta
+        Map<String, Object> response = new HashMap<>();
+        response.put("periodoDescricao", periodo.toString());
+        response.put("dataInicio", inicio);
+        response.put("dataFim", fim);
+        response.put("filtrosAplicados", Map.of(
+                "visualizandoFuncionario", (idFiltroFinal == null ? "TODOS" : idFiltroFinal),
+                "solicitadoPor", solicitante.getNomeCompleto(),
+                "cargoSolicitante", solicitante.getCargo()
+        ));
+        response.put("resumo", resumo); // Totais calculados
+        response.put("listaCaixas", listaDTOs); // Lista detalhada
+
+        return response;
+    }
+    //
+
 
     // Resumo Dashboard (Para a tela de admin)
     public DashboardResumoDTO calcularResumoDashboard(List<Caixa> caixasFiltrados) {
