@@ -26,13 +26,20 @@ public class CaixaController {
     private final CaixaService caixaService;
 
     @PostMapping("/abrir")
-    public ResponseEntity<Caixa> abrirCaixa(@Valid @RequestBody CaixaAberturaDTO dto) {
-        return new ResponseEntity<>(caixaService.abrirCaixa(dto), HttpStatus.CREATED);
+    public ResponseEntity<CaixaResponseDTO> abrirCaixa(@Valid @RequestBody CaixaAberturaDTO dto) {
+        Caixa caixaAberto = caixaService.abrirCaixa(dto);
+        return new ResponseEntity<>(caixaService.toResponseDTO(caixaAberto), HttpStatus.CREATED);
     }
 
     @PostMapping("/fechar/{id}")
-    public ResponseEntity<Caixa> fecharCaixa(@PathVariable Long id, @Valid @RequestBody CaixaFechamentoDTO dto) {
-        return ResponseEntity.ok(caixaService.fecharCaixa(id, dto));
+    public ResponseEntity<CaixaResponseDTO> fecharCaixa(@PathVariable Long id, @Valid @RequestBody CaixaFechamentoDTO dto) {
+        // Fecha o caixa e recebe a entidade
+        Caixa caixaFechado = caixaService.fecharCaixa(id, dto);
+
+        // Converte para DTO
+        CaixaResponseDTO response = caixaService.toResponseDTO(caixaFechado);
+
+        return ResponseEntity.ok(response);
     }
 
     // Endpoint para listar caixas com filtros e resumo
