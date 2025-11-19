@@ -32,6 +32,11 @@ public class Venda {
     @NotNull(message = "O cliente da venda é obrigatório.")
     private Cliente cliente;
 
+    // Caixa associado à venda
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "id_caixa", nullable = false)
+    private Caixa caixa;
+
     // Lista de itens da venda
     @OneToMany(mappedBy = "venda", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @NotEmpty(message = "A venda deve conter ao menos um item.")
