@@ -6,6 +6,7 @@ import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.time.ZoneId;
 
 @Entity
 @Table(name = "venda")
@@ -67,7 +68,7 @@ public class Venda {
     @PrePersist
     public void prePersist() {
         if (dataVenda == null) {
-            dataVenda = LocalDateTime.now();
+            dataVenda = LocalDateTime.now(ZoneId.of("America/Sao_Paulo"));
         }
     }
 }

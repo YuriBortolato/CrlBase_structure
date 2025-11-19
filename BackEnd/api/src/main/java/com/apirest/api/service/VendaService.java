@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.time.ZoneId;
 
 @Service
 @RequiredArgsConstructor
@@ -54,7 +55,7 @@ public class VendaService {
         venda.setCliente(cliente);
         venda.setMetodoPagamento(dto.getMetodoPagamento());
         venda.setObservacoes(dto.getObservacoes());
-        venda.setDataVenda(LocalDateTime.now());
+        venda.setDataVenda(LocalDateTime.now(ZoneId.of("America/Sao_Paulo")));
         venda.setStatusVenda(StatusVenda.REALIZADA);
 
         BigDecimal valorTotalVenda = BigDecimal.ZERO;
