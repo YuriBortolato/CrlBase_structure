@@ -34,18 +34,30 @@ public class Caixa {
     private StatusCaixa status;
 
     // --- Valores informados pelo funcionario na abertura ---
-    @Column(name = "saldo_inicial", nullable = false)
+    @Column(name = "saldo_inicial", nullable = false, precision = 12, scale = 2)
     private BigDecimal saldoInicial;
 
     // --- Valores informados pelo funcionario no fechamento ---
+    @Column(precision = 12, scale = 2)
     private BigDecimal conferidoDinheiro;
+
+    @Column(precision = 12, scale = 2)
     private BigDecimal conferidoPix;
+
+    @Column(precision = 12, scale = 2)
     private BigDecimal conferidoDebito;
+
+    @Column(precision = 12, scale = 2)
     private BigDecimal conferidoCredito;
+
+    @Column(precision = 12, scale = 2)
     private BigDecimal conferidoCrediario;
 
     // --- Valores calculados pelo sistema ---
+    @Column(precision = 12, scale = 2)
     private BigDecimal sistemaTotalVendas; // Total de vendas registradas no caixa
+
+    @Column(precision = 12, scale = 2)
     private BigDecimal quebraDeCaixa;      // Diferença entre o que foi conferido e o que o sistema calculou
 
     @Column(length = 500)
