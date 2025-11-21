@@ -20,7 +20,7 @@ public class Funcionario {
     private Long idFuncionario;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, length = 30)
     private Cargo cargo;
 
     @NotBlank(message = "O nome é obrigatório.")
@@ -50,7 +50,7 @@ public class Funcionario {
 
     @NotBlank(message = "O telefone é obrigatório.")
     @Pattern(regexp = "^\\+?\\d{10,15}$", message = "O telefone deve conter apenas números e ter entre 10 e 15 dígitos.")
-    @Column(nullable = false)
+    @Column(nullable = false, length = 15)
     private String telefone;
 
     @NotBlank(message = "O login é obrigatório.")

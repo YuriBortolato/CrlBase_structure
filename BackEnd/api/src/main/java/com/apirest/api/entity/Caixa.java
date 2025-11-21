@@ -30,7 +30,7 @@ public class Caixa {
     private LocalDateTime dataFechamento;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, length = 20) // Tamanho suficiente para armazenar os valores do enum
     private StatusCaixa status;
 
     // --- Valores informados pelo funcionario na abertura ---

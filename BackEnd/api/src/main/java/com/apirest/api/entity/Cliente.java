@@ -38,10 +38,12 @@ public class Cliente {
     private String cpf;
 
     @Past(message = "A data de nascimento deve ser no passado.")
-    @Column(name = "data_nascimento")
+    @NotNull(message = "A data de nascimento é obrigatória.")
+    @Column(name = "data_nascimento", nullable = false)
     private LocalDate dataNascimento;
 
     @Pattern(regexp = "^\\+?\\d{10,15}$", message = "O telefone deve conter apenas números e ter entre 10 e 15 dígitos.")
+    @Column(length = 15) // Ajustado o tamanho para 15 caracteres
     private String telefone;
 
     @NotBlank(message = "O login é obrigatório.")
