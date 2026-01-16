@@ -23,7 +23,7 @@ public interface CaixaRepository extends JpaRepository<Caixa, Long> {
     Optional<Caixa> findByFuncionarioAndStatus(Funcionario funcionario, StatusCaixa status);
 
     // Busca caixas com filtros opcionais
-    @Query("SELECT c FROM Caixa c WHERE " +
+    @Query("SELECT DISTINCT c FROM Caixa c LEFT JOIN FETCH c.vendas WHERE " +
             "(:idFuncionario IS NULL OR c.funcionario.idFuncionario = :idFuncionario) AND " +
             "(:status IS NULL OR c.status = :status) AND " +
             "(c.dataAbertura BETWEEN :dataInicio AND :dataFim)")
@@ -33,8 +33,9 @@ public interface CaixaRepository extends JpaRepository<Caixa, Long> {
             @Param("dataInicio") LocalDateTime dataInicio,
             @Param("dataFim") LocalDateTime dataFim
     );
-    // Soma o total conferido em caixas fechados por um funcionário em um período específico
-    @Query("SELECT c FROM Caixa c WHERE c.funcionario.idFuncionario = :idFuncionario " +
+
+    // Calcula o total de vendas em um caixa específico
+    @Query("SELECT DISTINCT c FROM Caixa c LEFT JOIN FETCH c.vendas WHERE c.funcionario.idFuncionario = :idFuncionario " +
             "AND c.status = 'FECHADO' " +
             "AND c.dataFechamento BETWEEN :inicio AND :fim")
     List<Caixa> findCaixasFechadosPorPeriodo(
@@ -43,8 +44,8 @@ public interface CaixaRepository extends JpaRepository<Caixa, Long> {
             @Param("fim") LocalDateTime fim
     );
 
-    // Busca todos os caixas fechados em um período específico
-    @Query("SELECT c FROM Caixa c WHERE c.status = 'FECHADO' " +
+    // Calcula o total de vendas em todos os caixas fechados em um período
+    @Query("SELECT DISTINCT c FROM Caixa c LEFT JOIN FETCH c.vendas WHERE c.status = 'FECHADO' " +
             "AND c.dataFechamento BETWEEN :inicio AND :fim")
     List<Caixa> findAllCaixasFechadosPorPeriodo(
             @Param("inicio") LocalDateTime inicio,
