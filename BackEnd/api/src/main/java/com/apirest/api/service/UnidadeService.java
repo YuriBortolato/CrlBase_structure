@@ -15,21 +15,18 @@ public class UnidadeService {
 
     @Transactional
     public Unidade criarUnidade(Unidade unidade) {
-        long totalLojas = repository.count();
+        // Conta quantas unidades já existem para o mesmo grupo econômico
+        long totalLojasDoGrupo = repository.countByGrupoEconomicoId(unidade.getGrupoEconomicoId());
 
-        // Regra: A partir da segunda unidade, o documento deve ser CNPJ
-        if (totalLojas > 0 && unidade.getTipoDocumento() == TipoDocumento.CPF) {
+        // Aplica a regra de expansão: a partir da segunda unidade, o documento deve ser CNPJ
+        if (totalLojasDoGrupo > 0 && unidade.getTipoDocumento() == TipoDocumento.CPF) {
             throw new RuntimeException("Regra de Expansão Violada: A partir da segunda unidade, é obrigatório o uso de CNPJ.");
         }
 
         if (repository.existsByDocumentoNumero(unidade.getDocumentoNumero())) {
-            throw new RuntimeException("Este documento já está cadastrado em outra unidade.");
+            throw new RuntimeException("Este documento já está cadastrado.");
         }
 
         return repository.save(unidade);
-    }
-
-    public long getQuantidadeUnidades() {
-        return repository.count();
     }
 }

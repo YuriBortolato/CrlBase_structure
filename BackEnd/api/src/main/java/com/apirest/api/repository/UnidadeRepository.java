@@ -6,6 +6,6 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface UnidadeRepository extends JpaRepository<Unidade, Long> {
-    long count(); // Metodo para contar o número de unidades cadastradas
+    long countByGrupoEconomicoId(Long grupoEconomicoId);
     boolean existsByDocumentoNumero(String documento);
 }

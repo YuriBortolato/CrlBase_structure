@@ -1,7 +1,9 @@
 package com.apirest.api.entity;
-    import jakarta.persistence.*;
-    import jakarta.validation.constraints.NotBlank;
-    import lombok.*;
+
+import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import lombok.*;
 
 @Entity
 @Table(name = "unidade")
@@ -13,6 +15,11 @@ public class Unidade {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long idUnidade;
+
+    // Associação com Grupo Econômico
+    @NotNull(message = "ID do Grupo Econômico é obrigatório")
+    @Column(name = "grupo_economico_id", nullable = false)
+    private Long grupoEconomicoId;
 
     @NotBlank(message = "Nome fantasia é obrigatório")
     private String nomeFantasia;
@@ -35,7 +42,8 @@ public class Unidade {
     private String cidade;
     private String uf;
 
-    // Apenas para CNPJ
+    //opcional
+    private String complemento;
     private String razaoSocial;
     private String inscricaoEstadual;
 }
