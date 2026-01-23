@@ -19,6 +19,10 @@ public class Funcionario {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long idFuncionario;
 
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "id_unidade", nullable = false)
+    private Unidade unidade;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
     private Cargo cargo;
