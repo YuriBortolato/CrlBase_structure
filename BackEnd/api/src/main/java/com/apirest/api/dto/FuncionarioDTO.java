@@ -13,6 +13,9 @@ import java.time.LocalDate;
 @AllArgsConstructor
 public class FuncionarioDTO {
 
+    @NotNull(message = "O ID da unidade é obrigatório.")
+    private Long idUnidade;
+
     @NotNull(message = "O cargo é obrigatório.")
     private Cargo cargo;
 

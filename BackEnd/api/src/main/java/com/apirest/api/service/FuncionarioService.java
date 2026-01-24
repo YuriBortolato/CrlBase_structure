@@ -4,8 +4,10 @@ import com.apirest.api.dto.*;
 import com.apirest.api.entity.Cargo;
 import com.apirest.api.entity.Cliente;
 import com.apirest.api.entity.Funcionario;
+import com.apirest.api.entity.Unidade;
 import com.apirest.api.repository.ClienteRepository;
 import com.apirest.api.repository.FuncionarioRepository;
+import com.apirest.api.repository.UnidadeRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,6 +28,7 @@ public class FuncionarioService {
     private final FuncionarioRepository repository;
     private final PasswordEncoder passwordEncoder;
     private final ClienteRepository clienteRepository;
+    private final UnidadeRepository unidadeRepository;
 
     private static final Set<Cargo> PERMISSAO_CRIAR_FUNCIONARIO = Set.of(
             Cargo.DONO, Cargo.GERENTE, Cargo.LIDER_VENDA, Cargo.ADMIN
@@ -64,6 +67,14 @@ public class FuncionarioService {
             throw new RuntimeException("Data de nascimento é obrigatória.");
         }
 
+        Unidade unidade = null;
+        if (dto.getIdUnidade() != null) {
+            unidade = unidadeRepository.findById(dto.getIdUnidade())
+                    .orElseThrow(() -> new RuntimeException("Unidade não encontrada com o ID: " + dto.getIdUnidade()));
+        } else {
+            throw new RuntimeException("É obrigatório informar a Unidade (Filial/Matriz) do funcionário.");
+        }
+
         // Criptografa a senha
         String senhaCriptografada = passwordEncoder.encode(dto.getSenha());
 
@@ -78,6 +89,7 @@ public class FuncionarioService {
                 .telefone(dto.getTelefone())
                 .login(dto.getLogin())
                 .senhaCriptografada(senhaCriptografada)
+                .unidade(unidade)
                 .build();
 
         // Salva o funcionário
@@ -176,6 +188,13 @@ public class FuncionarioService {
             throw new RuntimeException("Login já cadastrado em outra conta.");
         }
 
+        // Atualiza a unidade, se fornecida
+        if (dto.getIdUnidade() != null) {
+            Unidade novaUnidade = unidadeRepository.findById(dto.getIdUnidade())
+                    .orElseThrow(() -> new RuntimeException("Unidade não encontrada."));
+            funcionarioExistente.setUnidade(novaUnidade);
+        }
+
         // Atualiza os campos do funcionário
         funcionarioExistente.setCargo(dto.getCargo());
         funcionarioExistente.setNomeCompleto(dto.getNomeCompleto());
@@ -200,6 +219,11 @@ public class FuncionarioService {
         clienteEspelho.setEmail(dto.getEmail());
         clienteEspelho.setTelefone(dto.getTelefone());
         clienteEspelho.setLogin(dto.getLogin());
+
+        if (funcionarioExistente.getUnidade() != null) {
+            clienteEspelho.setUnidadeOrigem(funcionarioExistente.getUnidade());
+        }
+
         if (senhaCripto != null) {
             clienteEspelho.setSenhaCriptografada(senhaCripto);
         }
@@ -221,6 +245,13 @@ public class FuncionarioService {
 
         if (patchDto.getCargo() != null) {
             funcionarioExistente.setCargo(patchDto.getCargo());
+        }
+
+        if (patchDto.getIdUnidade() != null) {
+            Unidade novaUnidade = unidadeRepository.findById(patchDto.getIdUnidade())
+                    .orElseThrow(() -> new RuntimeException("Unidade não encontrada."));
+            funcionarioExistente.setUnidade(novaUnidade);
+            clienteEspelho.setUnidadeOrigem(novaUnidade);
         }
 
         if (patchDto.getNomeCompleto() != null && !patchDto.getNomeCompleto().isBlank()) {

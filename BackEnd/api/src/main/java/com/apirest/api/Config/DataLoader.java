@@ -1,10 +1,10 @@
 package com.apirest.api.Config;
 
-import com.apirest.api.entity.Funcionario;
-import com.apirest.api.entity.Cargo;
-import com.apirest.api.entity.Cliente;
+import com.apirest.api.entity.*;
 import com.apirest.api.repository.ClienteRepository;
 import com.apirest.api.repository.FuncionarioRepository;
+import com.apirest.api.repository.PerfilAcessoRepository;
+import com.apirest.api.repository.UnidadeRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Configuration;
@@ -18,11 +18,35 @@ public class DataLoader implements CommandLineRunner  {
     private final FuncionarioRepository funcionarioRepository;
     private final ClienteRepository clienteRepository;
     private final PasswordEncoder passwordEncoder;
+    private final UnidadeRepository unidadeRepository;
 
     @Override
     public void run(String... args) {
         // verifica se já existe algum Administrador
         if (funcionarioRepository.count() == 0) {
+
+            Unidade matriz;
+            if (unidadeRepository.count() == 0) {
+                // <--- CORREÇÃO AQUI: Campos batendo com a entidade Unidade --->
+                matriz = Unidade.builder()
+                        .grupoEconomicoId(1L) // Campo obrigatório (@NotNull)
+                        .nomeFantasia("Matriz - Sede") // Nome correto do campo
+                        .documentoNumero("00000000000191") // Campo obrigatório (@NotBlank)
+                        .tipoDocumento(TipoDocumento.CNPJ) // Assumindo que você tem esse Enum criado
+                        .logradouro("Rua do Sistema")
+                        .numero("1000")
+                        .cidade("Maringá")
+                        .uf("PR")
+                        .cep("87000-000")
+                        .emailContato("admin@sistema.com")
+                        //.ativo(true) <--- Removi pois sua entidade Unidade NÃO tem esse campo no código que você mandou
+                        .build();
+
+                unidadeRepository.save(matriz);
+                System.out.println("✅ Unidade Matriz criada automaticamente.");
+            } else {
+                matriz = unidadeRepository.findAll().get(0);
+            }
 
             // Variáveis para evitar repetição
             String adminEmail = "pato@sistema.com".toLowerCase();
@@ -44,6 +68,7 @@ public class DataLoader implements CommandLineRunner  {
                     .cargo(Cargo.ADMIN)
                     .nomeRegistro("Admin")
                     .dataNascimento(LocalDate.of(1990, 1, 1))
+                    .unidade(matriz)
                     .build();
 
             funcionarioRepository.save(admin);
@@ -58,6 +83,8 @@ public class DataLoader implements CommandLineRunner  {
                         .senhaCriptografada(senhaCripto)
                         .ativo(true)
                         .dataNascimento(LocalDate.of(1990, 1, 1))
+                        .funcionarioOrigem(admin)
+                        .unidadeOrigem(matriz)
                         .build();
 
                 clienteRepository.save(clienteAdmin);
