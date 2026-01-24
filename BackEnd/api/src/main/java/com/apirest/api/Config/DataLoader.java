@@ -3,7 +3,7 @@ package com.apirest.api.Config;
 import com.apirest.api.entity.*;
 import com.apirest.api.repository.ClienteRepository;
 import com.apirest.api.repository.FuncionarioRepository;
-import com.apirest.api.repository.PerfilAcessoRepository;
+import com.apirest.api.repository.PerfilAcessoRepository; // <--- Import Novo
 import com.apirest.api.repository.UnidadeRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
@@ -15,40 +15,49 @@ import java.time.LocalDate;
 @Configuration
 @RequiredArgsConstructor
 public class DataLoader implements CommandLineRunner  {
+
     private final FuncionarioRepository funcionarioRepository;
     private final ClienteRepository clienteRepository;
     private final PasswordEncoder passwordEncoder;
     private final UnidadeRepository unidadeRepository;
-
+    private final PerfilAcessoRepository perfilAcessoRepository;
     @Override
     public void run(String... args) {
-        // verifica se já existe algum Administrador
         if (funcionarioRepository.count() == 0) {
 
             Unidade matriz;
             if (unidadeRepository.count() == 0) {
-                // <--- CORREÇÃO AQUI: Campos batendo com a entidade Unidade --->
                 matriz = Unidade.builder()
-                        .grupoEconomicoId(1L) // Campo obrigatório (@NotNull)
-                        .nomeFantasia("Matriz - Sede") // Nome correto do campo
-                        .documentoNumero("00000000000191") // Campo obrigatório (@NotBlank)
-                        .tipoDocumento(TipoDocumento.CNPJ) // Assumindo que você tem esse Enum criado
+                        .grupoEconomicoId(1L)
+                        .nomeFantasia("Matriz - Sede")
+                        .documentoNumero("00000000000191")
+                        .tipoDocumento(TipoDocumento.CNPJ)
                         .logradouro("Rua do Sistema")
                         .numero("1000")
                         .cidade("Maringá")
                         .uf("PR")
                         .cep("87000-000")
                         .emailContato("admin@sistema.com")
-                        //.ativo(true) <--- Removi pois sua entidade Unidade NÃO tem esse campo no código que você mandou
                         .build();
-
                 unidadeRepository.save(matriz);
-                System.out.println("✅ Unidade Matriz criada automaticamente.");
+                System.out.println("✅ Unidade Matriz criada.");
             } else {
                 matriz = unidadeRepository.findAll().get(0);
             }
 
-            // Variáveis para evitar repetição
+            PerfilAcesso perfilAdmin;
+            if (perfilAcessoRepository.count() == 0) {
+                perfilAdmin = PerfilAcesso.builder()
+                        .nome("ADMINISTRADOR")
+                        .descricao("Acesso total ao sistema")
+                        .tipo(TipoPerfil.INTERNO)
+                        .build();
+                perfilAcessoRepository.save(perfilAdmin);
+                System.out.println("✅ Perfil de Acesso ADMIN criado.");
+            } else {
+                perfilAdmin = perfilAcessoRepository.findAll().get(0);
+            }
+
             String adminEmail = "pato@sistema.com".toLowerCase();
             String adminCpf = "25285178908";
             String adminLogin = "admin";
@@ -56,7 +65,6 @@ public class DataLoader implements CommandLineRunner  {
             String adminNome = "Administrador do Sistema";
             String adminSenhaPlana = "admin123";
             String senhaCripto = passwordEncoder.encode(adminSenhaPlana);
-
 
             Funcionario admin = Funcionario.builder()
                     .nomeCompleto(adminNome)
@@ -69,11 +77,14 @@ public class DataLoader implements CommandLineRunner  {
                     .nomeRegistro("Admin")
                     .dataNascimento(LocalDate.of(1990, 1, 1))
                     .unidade(matriz)
+                    .perfilAcesso(perfilAdmin)
+                    .ativo(true)
                     .build();
 
             funcionarioRepository.save(admin);
 
-            if (!clienteRepository.existsByCpf(adminCpf) && !clienteRepository.existsByEmail(adminEmail) && !clienteRepository.existsByLogin(adminLogin)) {
+            // 4. CRIAR O CLIENTE ESPELHO DO ADMIN
+            if (!clienteRepository.existsByCpf(adminCpf) && !clienteRepository.existsByEmail(adminEmail)) {
                 Cliente clienteAdmin = Cliente.builder()
                         .nomeCompleto(adminNome)
                         .login(adminLogin)
