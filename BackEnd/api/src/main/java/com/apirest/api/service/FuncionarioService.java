@@ -86,20 +86,22 @@ public class FuncionarioService {
         // Sincroniza com Cliente Espelho
         log.info("Sincronizando cliente espelho para o funcionário ID: {}", salvo.getIdFuncionario());
 
+        try {
         Optional<Cliente> clienteExistenteOpt = clienteRepository.findByCpf(cpfLimpo);
         Cliente clienteEspelho;
 
         if (clienteExistenteOpt.isPresent()) {
             // Atualiza o cliente espelho existente
-            log.info("Cliente já existente encontrado (CPF: {}). Atualizando dados para vínculo.", cpfLimpo);
+            log.info("Cliente já existente (CPF: {}). Vinculando ao funcionário.", cpfLimpo);
             clienteEspelho = clienteExistenteOpt.get();
 
             clienteEspelho.setNomeCompleto(salvo.getNomeCompleto());
             clienteEspelho.setEmail(salvo.getEmail());
             clienteEspelho.setTelefone(salvo.getTelefone());
             clienteEspelho.setLogin(salvo.getLogin());
-            clienteEspelho.setSenhaCriptografada(senhaCriptografada);
-            clienteEspelho.setAtivo(true);
+            clienteEspelho.setSenhaCriptografada(salvo.getSenhaCriptografada()); // Atualiza a senha
+            clienteEspelho.setFuncionarioOrigem(salvo); // Vincula ao funcionário criado
+            clienteEspelho.setUnidadeOrigem(salvo.getUnidade()); // Atualiza a unidade de origem
 
         } else {
             // Cria um novo cliente espelho
@@ -111,15 +113,17 @@ public class FuncionarioService {
                     .dataNascimento(salvo.getDataNascimento())
                     .telefone(salvo.getTelefone())
                     .login(salvo.getLogin())
-                    .senhaCriptografada(senhaCriptografada)
+                    .senhaCriptografada(salvo.getSenhaCriptografada())
                     .ativo(true)
+                    .funcionarioOrigem(salvo) // Vincula ao funcionário criado
+                    .unidadeOrigem(salvo.getUnidade()) // Define a unidade de origem
+                    .limiteCredito(new java.math.BigDecimal("200.00")) // Limite de crédito padrão
                     .build();
         }
+        clienteRepository.save(clienteEspelho);
 
-        // Salva o cliente espelho
-        try {
-            clienteRepository.save(clienteEspelho);
         } catch (Exception e) {
+            // Em caso de erro, loga e reverte a criação do funcionário
             log.error("Erro ao salvar cliente espelho: {}", e.getMessage());
             // Reverte a criação do funcionário em caso de falha
             throw new RuntimeException("Erro ao sincronizar dados: O E-mail ou Login já estão em uso por outra pessoa.");

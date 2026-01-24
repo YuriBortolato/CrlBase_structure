@@ -15,12 +15,22 @@ import java.time.LocalDate;
 @Builder
 public class Funcionario {
 
+
+    //  Perfil de Acesso (Substitui a lógica rígida de cargos)
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "perfil_acesso_id", nullable = false)
+    private PerfilAcesso perfilAcesso;
+
+    // Dados adicionais de contratação em formato JSON
+    @Column(columnDefinition = "TEXT")
+    private String dadosContratacao; // {"salario": 2000, "turno": "MANHA"}
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long idFuncionario;
 
     @ManyToOne(optional = false)
-    @JoinColumn(name = "id_unidade", nullable = false)
+    @JoinColumn(name = "unidade_id", nullable = false)
     private Unidade unidade;
 
     @Enumerated(EnumType.STRING)
