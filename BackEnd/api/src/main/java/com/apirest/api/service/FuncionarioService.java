@@ -1,12 +1,10 @@
 package com.apirest.api.service;
 
 import com.apirest.api.dto.*;
-import com.apirest.api.entity.Cargo;
-import com.apirest.api.entity.Cliente;
-import com.apirest.api.entity.Funcionario;
-import com.apirest.api.entity.Unidade;
+import com.apirest.api.entity.*;
 import com.apirest.api.repository.ClienteRepository;
 import com.apirest.api.repository.FuncionarioRepository;
+import com.apirest.api.repository.PerfilAcessoRepository;
 import com.apirest.api.repository.UnidadeRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +27,7 @@ public class FuncionarioService {
     private final PasswordEncoder passwordEncoder;
     private final ClienteRepository clienteRepository;
     private final UnidadeRepository unidadeRepository;
+    private final PerfilAcessoRepository perfilAcessoRepository;
 
     private static final Set<Cargo> PERMISSAO_CRIAR_FUNCIONARIO = Set.of(
             Cargo.DONO, Cargo.GERENTE, Cargo.LIDER_VENDA, Cargo.ADMIN
@@ -75,6 +74,9 @@ public class FuncionarioService {
             throw new RuntimeException("É obrigatório informar a Unidade (Filial/Matriz) do funcionário.");
         }
 
+        PerfilAcesso perfil = perfilAcessoRepository.findById(dto.getIdPerfilAcesso())
+                .orElseThrow(() -> new RuntimeException("Perfil de Acesso não encontrado com ID: " + dto.getIdPerfilAcesso()));
+
         // Criptografa a senha
         String senhaCriptografada = passwordEncoder.encode(dto.getSenha());
 
@@ -90,6 +92,7 @@ public class FuncionarioService {
                 .login(dto.getLogin())
                 .senhaCriptografada(senhaCriptografada)
                 .unidade(unidade)
+                .perfilAcesso(perfil)
                 .build();
 
         // Salva o funcionário

@@ -16,6 +16,9 @@ public class FuncionarioDTO {
     @NotNull(message = "O ID da unidade é obrigatório.")
     private Long idUnidade;
 
+    @NotNull(message = "O ID do perfil de acesso é obrigatório.")
+    private Long idPerfilAcesso;
+
     @NotNull(message = "O cargo é obrigatório.")
     private Cargo cargo;
 
