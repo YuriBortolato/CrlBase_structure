@@ -124,6 +124,11 @@ public class ClienteService {
         // Busca o cliente existente no banco de dados
         Cliente clienteExistente = buscarPorId(id);
 
+        if (clienteExistente.getFuncionarioOrigem() != null) {
+            // Impede alterações diretas em dados de colaboradores
+            throw new RuntimeException("Ação Negada: Dados de colaboradores devem ser alterados apenas no menu de RH (Funcionários).");
+        }
+
         // Verifica se o email foi alterado
         boolean emailMudou = false;
         if (dto.getEmail() != null) {
@@ -178,6 +183,13 @@ public class ClienteService {
     public ClienteResponseDTO atualizarParcial(Long id, ClientePatchDTO patchDto) {
         // Busca o cliente existente no banco de dados
         Cliente clienteExistente = buscarPorId(id);
+
+        if (clienteExistente.getFuncionarioOrigem() != null) {
+            // Se tentar alterar dados vitais, bloqueia.
+            if (patchDto.getNomeCompleto() != null || patchDto.getEmail() != null || patchDto.getLogin() != null) {
+                throw new RuntimeException("Ação Negada: Dados de identidade e acesso (Nome, Email, Login) de colaboradores devem ser alterados apenas no menu de Funcionários.");
+            }
+        }
 
         // Aplica as atualizações parciais
         // Atualiza o nome completo se fornecido

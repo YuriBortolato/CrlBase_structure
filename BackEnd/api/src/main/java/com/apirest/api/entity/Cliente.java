@@ -15,6 +15,32 @@ import java.time.LocalDate;
 @Builder
 public class Cliente {
 
+    //
+    @ManyToOne
+    @JoinColumn(name = "unidade_origem_id")
+    private Unidade unidadeOrigem;
+
+    // Perfil de Acesso do App
+    @ManyToOne
+    @JoinColumn(name = "perfil_acesso_id")
+    private PerfilAcesso perfilAcesso;
+
+    // Elo de Sincronização. Se preenchido, este cliente É um funcionário.
+    @OneToOne
+    @JoinColumn(name = "funcionario_origem_id", unique = true, nullable = true)
+    private Funcionario funcionarioOrigem;
+
+    // Campos Financeiros
+    @Column(precision = 12, scale = 2)
+    private java.math.BigDecimal limiteCredito; // Quanto ele pode gastar fiado
+
+    @Builder.Default
+    private boolean bloqueadoFiado = false; // Se deve bloquear compras a prazo
+
+    // Campos Jurídicos
+    private String assinaturaDigitalUrl;
+    private Integer termoAceitoVersaoId;
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_cliente")

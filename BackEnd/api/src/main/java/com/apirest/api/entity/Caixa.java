@@ -9,7 +9,12 @@ import java.time.ZoneId;
 import java.util.List;
 
 @Entity
-@Table(name = "caixas")
+@Table(name = "caixas", indexes = {
+        @Index(name = "id_caixa_funcionario", columnList = "id_funcionario"),
+        @Index(name = "id_caixa_status", columnList = "status"),
+        @Index(name = "id_caixa_data_abertura", columnList = "dataAbertura"),
+        @Index(name = "id_caixa_data_fechamento", columnList = "dataFechamento")
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

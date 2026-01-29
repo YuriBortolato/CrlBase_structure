@@ -36,7 +36,7 @@ public class CaixaService {
             Cargo.DONO, Cargo.GERENTE, Cargo.LIDER_VENDA, Cargo.ADMIN
     );
 
-    //  Abertura de Caixa
+    // Abertura de Caixa
     @Transactional
     public Caixa abrirCaixa(CaixaAberturaDTO dto) {
         log.info("Tentativa de abertura de caixa para funcionário ID: {}", dto.getIdFuncionario());
@@ -59,7 +59,7 @@ public class CaixaService {
         return caixaRepository.save(caixa);
     }
 
-    //  Fechamento de Caixa
+    // Fechamento de Caixa
     @Transactional
     public Caixa fecharCaixa(Long idCaixa, CaixaFechamentoDTO dto) {
         log.info("Tentativa de fechamento de caixa ID: {}", idCaixa);
@@ -111,12 +111,14 @@ public class CaixaService {
         return caixaRepository.save(caixa);
     }
 
-    // Listagem de Caixas com Filtros (Básico)
+    // OTIMIZAÇÃO: readOnly = true melhora performance de consultas
+    @Transactional(readOnly = true)
     public List<Caixa> listarComFiltros(Long idFuncionario, StatusCaixa status, LocalDateTime inicio, LocalDateTime fim) {
         return caixaRepository.findByFiltros(idFuncionario, status, inicio, fim);
     }
 
     // RELATÓRIO AVANÇADO (Com filtros complexos)
+    @Transactional(readOnly = true)
     public Map<String, Object> gerarRelatorioAvancado(
             Long idSolicitante,
             Long idFuncionarioAlvo,
@@ -198,18 +200,19 @@ public class CaixaService {
                 "solicitadoPor", solicitante.getNomeCompleto(),
                 "cargoSolicitante", solicitante.getCargo()
         ));
-        response.put("resumo", resumo); // Adiciona o resumo calculado
-        response.put("listaCaixas", listaDTOs); // Adiciona a lista de caixas convertida
+        response.put("resumo", resumo);
+        response.put("listaCaixas", listaDTOs);
 
         return response;
     }
 
-    // Resumo Dashboard (Para a tela de admin)
+    // Resumo Dashboard
     public DashboardResumoDTO calcularResumoDashboard(List<Caixa> caixasFiltrados) {
         return calcularSomaDeCaixas(caixasFiltrados);
     }
 
-    // Relatório Individual (Para o funcionário ver o dele)
+    // Relatório Individual
+    @Transactional(readOnly = true)
     public RelatorioIndividualDTO gerarRelatorioIndividual(Long idFuncionario) {
         Funcionario funcionario = funcionarioRepository.findById(idFuncionario)
                 .orElseThrow(() -> new RuntimeException("Funcionário não encontrado"));
@@ -230,15 +233,13 @@ public class CaixaService {
 
         return RelatorioIndividualDTO.builder()
                 .nomeFuncionario(funcionario.getNomeCompleto())
-                // Dados de Hoje
-                .totalGeralHoje(resumoHoje.getTotalConferido()) // ATUALIZADO: Usa o TotalConferido
+                .totalGeralHoje(resumoHoje.getTotalConferido())
                 .dinheiroHoje(resumoHoje.getTotalDinheiro())
                 .pixHoje(resumoHoje.getTotalPix())
                 .debitoHoje(resumoHoje.getTotalDebito())
                 .creditoHoje(resumoHoje.getTotalCredito())
                 .crediarioHoje(resumoHoje.getTotalCrediario())
-                // Dados do Mês
-                .totalGeralMes(resumoMes.getTotalConferido()) // ATUALIZADO: Usa o TotalConferido
+                .totalGeralMes(resumoMes.getTotalConferido())
                 .dinheiroMes(resumoMes.getTotalDinheiro())
                 .pixMes(resumoMes.getTotalPix())
                 .debitoMes(resumoMes.getTotalDebito())
@@ -247,7 +248,7 @@ public class CaixaService {
                 .build();
     }
 
-    // Conversão para DTO de Resposta
+    // Conversão para DTO
     public CaixaResponseDTO toResponseDTO(Caixa c) {
         return CaixaResponseDTO.builder()
                 .idCaixa(c.getIdCaixa())
@@ -267,7 +268,8 @@ public class CaixaService {
                 .build();
     }
 
-    // Relatório Global por Data Específica (Dia X)
+    // Relatório Global (Dia)
+    @Transactional(readOnly = true)
     public RelatorioPeriodoDTO gerarRelatorioDoDia(LocalDate data) {
         LocalDateTime inicio = data.atStartOfDay();
         LocalDateTime fim = data.atTime(LocalTime.MAX);
@@ -287,7 +289,8 @@ public class CaixaService {
                 .build();
     }
 
-    // Relatório Global por Mês (Mês X)
+    // Relatório Global (Mês)
+    @Transactional(readOnly = true)
     public RelatorioPeriodoDTO gerarRelatorioDoMes(int ano, int mes) {
         LocalDate dataInicial = LocalDate.of(ano, mes, 1);
         LocalDateTime inicio = dataInicial.atStartOfDay();
@@ -376,7 +379,6 @@ public class CaixaService {
                 .previstoDebito(sisDebito)
                 .previstoCredito(sisCredito)
                 .previstoCrediario(sisCrediario)
-
                 .build();
     }
 }

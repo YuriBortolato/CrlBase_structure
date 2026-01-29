@@ -12,6 +12,8 @@ import org.hibernate.validator.constraints.br.CPF;
 @NoArgsConstructor
 public class FuncionarioPatchDTO {
 
+    private Long idUnidade;
+
     private Cargo cargo;
 
     @Pattern(regexp = "^[A-Za-zÀ-ÿ\\s]{5,255}$", message = "O nome deve conter apenas letras e ter pelo menos 5 caracteres")

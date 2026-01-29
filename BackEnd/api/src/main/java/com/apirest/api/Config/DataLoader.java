@@ -1,10 +1,10 @@
 package com.apirest.api.Config;
 
-import com.apirest.api.entity.Funcionario;
-import com.apirest.api.entity.Cargo;
-import com.apirest.api.entity.Cliente;
+import com.apirest.api.entity.*;
 import com.apirest.api.repository.ClienteRepository;
 import com.apirest.api.repository.FuncionarioRepository;
+import com.apirest.api.repository.PerfilAcessoRepository; // <--- Import Novo
+import com.apirest.api.repository.UnidadeRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Configuration;
@@ -15,16 +15,49 @@ import java.time.LocalDate;
 @Configuration
 @RequiredArgsConstructor
 public class DataLoader implements CommandLineRunner  {
+
     private final FuncionarioRepository funcionarioRepository;
     private final ClienteRepository clienteRepository;
     private final PasswordEncoder passwordEncoder;
-
+    private final UnidadeRepository unidadeRepository;
+    private final PerfilAcessoRepository perfilAcessoRepository;
     @Override
     public void run(String... args) {
-        // verifica se já existe algum Administrador
         if (funcionarioRepository.count() == 0) {
 
-            // Variáveis para evitar repetição
+            Unidade matriz;
+            if (unidadeRepository.count() == 0) {
+                matriz = Unidade.builder()
+                        .grupoEconomicoId(1L)
+                        .nomeFantasia("Matriz - Sede")
+                        .documentoNumero("00000000000191")
+                        .tipoDocumento(TipoDocumento.CNPJ)
+                        .logradouro("Rua do Sistema")
+                        .numero("1000")
+                        .cidade("Maringá")
+                        .uf("PR")
+                        .cep("87000-000")
+                        .emailContato("admin@sistema.com")
+                        .build();
+                unidadeRepository.save(matriz);
+                System.out.println("✅ Unidade Matriz criada.");
+            } else {
+                matriz = unidadeRepository.findAll().get(0);
+            }
+
+            PerfilAcesso perfilAdmin;
+            if (perfilAcessoRepository.count() == 0) {
+                perfilAdmin = PerfilAcesso.builder()
+                        .nome("ADMINISTRADOR")
+                        .descricao("Acesso total ao sistema")
+                        .tipo(TipoPerfil.INTERNO)
+                        .build();
+                perfilAcessoRepository.save(perfilAdmin);
+                System.out.println("✅ Perfil de Acesso ADMIN criado.");
+            } else {
+                perfilAdmin = perfilAcessoRepository.findAll().get(0);
+            }
+
             String adminEmail = "pato@sistema.com".toLowerCase();
             String adminCpf = "25285178908";
             String adminLogin = "admin";
@@ -32,7 +65,6 @@ public class DataLoader implements CommandLineRunner  {
             String adminNome = "Administrador do Sistema";
             String adminSenhaPlana = "admin123";
             String senhaCripto = passwordEncoder.encode(adminSenhaPlana);
-
 
             Funcionario admin = Funcionario.builder()
                     .nomeCompleto(adminNome)
@@ -44,11 +76,15 @@ public class DataLoader implements CommandLineRunner  {
                     .cargo(Cargo.ADMIN)
                     .nomeRegistro("Admin")
                     .dataNascimento(LocalDate.of(1990, 1, 1))
+                    .unidade(matriz)
+                    .perfilAcesso(perfilAdmin)
+                    .ativo(true)
                     .build();
 
             funcionarioRepository.save(admin);
 
-            if (!clienteRepository.existsByCpf(adminCpf) && !clienteRepository.existsByEmail(adminEmail) && !clienteRepository.existsByLogin(adminLogin)) {
+            // 4. CRIAR O CLIENTE ESPELHO DO ADMIN
+            if (!clienteRepository.existsByCpf(adminCpf) && !clienteRepository.existsByEmail(adminEmail)) {
                 Cliente clienteAdmin = Cliente.builder()
                         .nomeCompleto(adminNome)
                         .login(adminLogin)
@@ -58,6 +94,8 @@ public class DataLoader implements CommandLineRunner  {
                         .senhaCriptografada(senhaCripto)
                         .ativo(true)
                         .dataNascimento(LocalDate.of(1990, 1, 1))
+                        .funcionarioOrigem(admin)
+                        .unidadeOrigem(matriz)
                         .build();
 
                 clienteRepository.save(clienteAdmin);
