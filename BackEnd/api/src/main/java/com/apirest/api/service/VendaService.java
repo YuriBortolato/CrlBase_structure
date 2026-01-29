@@ -5,11 +5,7 @@ import com.apirest.api.dto.VendaItemDTO;
 import com.apirest.api.dto.VendaItemResponseDTO;
 import com.apirest.api.dto.VendaResponseDTO;
 import com.apirest.api.entity.*;
-import com.apirest.api.repository.CaixaRepository;
-import com.apirest.api.repository.ClienteRepository;
-import com.apirest.api.repository.FuncionarioRepository;
-import com.apirest.api.repository.ProdutoRepository;
-import com.apirest.api.repository.VendaRepository;
+import com.apirest.api.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -30,10 +26,12 @@ public class VendaService {
     private final VendaRepository vendaRepository;
     private final ClienteRepository clienteRepository;
     private final FuncionarioRepository funcionarioRepository;
-    private final ProdutoRepository produtoRepository;
-
-    // Definição das permissões necessárias para gerenciar vendas
     private final CaixaRepository caixaRepository;
+
+    // --- ALTERAÇÃO: Repositórios da nova arquitetura de produtos ---
+    private final ProdutoVariacaoRepository produtoVariacaoRepository;
+    private final EstoqueSaldoRepository estoqueSaldoRepository;
+    // ---------------------------------------------------------------
 
     private static final Set<String> PERMISSAO_GERENCIAR_VENDA = Set.of("DONO", "GERENTE", "LIDER_VENDA", "ADMIN");
 
@@ -41,7 +39,7 @@ public class VendaService {
     public VendaResponseDTO registrarVenda(VendaDTO dto) {
         log.info("Iniciando registro de venda. Funcionario ID: {}, Cliente ID: {}", dto.getIdFuncionario(), dto.getIdCliente());
 
-        // busca produto, validando funcionário ativo
+        // busca funcionário, validando ativo
         Funcionario funcionario = funcionarioRepository.findById(dto.getIdFuncionario())
                 .orElseThrow(() -> new RuntimeException("Funcionário com ID " + dto.getIdFuncionario() + " não encontrado"));
         if (!funcionario.isAtivo()) {
@@ -49,7 +47,11 @@ public class VendaService {
             throw new RuntimeException("Funcionário " + funcionario.getNomeCompleto() + " está inativo.");
         }
 
-        // busca produto, validando cliente ativo
+        // --- NOVO: Identifica a unidade para baixar o estoque correto ---
+        Unidade unidadeDaVenda = funcionario.getUnidade();
+        // ---------------------------------------------------------------
+
+        // busca cliente, validando ativo
         Cliente cliente = clienteRepository.findById(dto.getIdCliente())
                 .orElseThrow(() -> new RuntimeException("Cliente com ID " + dto.getIdCliente() + " não encontrado"));
         if (!cliente.isAtivo()) {
@@ -77,31 +79,41 @@ public class VendaService {
 
         // Processa cada item da venda
         for (VendaItemDTO itemDTO : dto.getItens()) {
-            Produto produto = produtoRepository.findByIdProdutoAndAtivoTrue(itemDTO.getIdProduto())
-                    .orElseThrow(() -> new RuntimeException("Produto com ID " + itemDTO.getIdProduto() + " não encontrado ou inativo."));
+
+            // --- ATUALIZAÇÃO: Busca a Variação (SKU) em vez do Produto genérico ---
+            ProdutoVariacao variacao = produtoVariacaoRepository.findById(itemDTO.getIdProduto())
+                    .orElseThrow(() -> new RuntimeException("Produto/Variação com ID " + itemDTO.getIdProduto() + " não encontrado."));
+
+            if (!variacao.isAtivo()) {
+                throw new RuntimeException("O produto " + variacao.getNomeCompletoConcatenado() + " está inativo e não pode ser vendido.");
+            }
+
+            // --- ATUALIZAÇÃO: Busca o saldo na tabela de estoque da UNIDADE ---
+            EstoqueSaldo saldo = estoqueSaldoRepository.findByUnidadeIdAndProdutoVariacaoId(unidadeDaVenda.getIdUnidade(), variacao.getId())
+                    .orElseThrow(() -> new RuntimeException("Estoque não cadastrado para o produto " + variacao.getNomeVariacao() + " nesta unidade."));
 
             // Verifica estoque disponível
-            if (produto.getQuantidadeEmEstoque() < itemDTO.getQuantidade()) {
-                log.error("Estoque insuficiente. Produto: {}, Estoque: {}, Solicitado: {}",
-                        produto.getNome(), produto.getQuantidadeEmEstoque(), itemDTO.getQuantidade());
-                throw new RuntimeException("Estoque insuficiente para o produto: " + produto.getNome());
+            if (saldo.getQuantidadeAtual() < itemDTO.getQuantidade()) {
+                log.error("Estoque insuficiente. Produto: {}, Estoque Unidade: {}, Solicitado: {}",
+                        variacao.getNomeCompletoConcatenado(), saldo.getQuantidadeAtual(), itemDTO.getQuantidade());
+                throw new RuntimeException("Estoque insuficiente para: " + variacao.getNomeCompletoConcatenado());
             }
 
             log.info("Debitando estoque. Produto: {}, Qtd Anterior: {}, Qtd Debitada: {}",
-                    produto.getNome(), produto.getQuantidadeEmEstoque(), itemDTO.getQuantidade());
+                    variacao.getNomeCompletoConcatenado(), saldo.getQuantidadeAtual(), itemDTO.getQuantidade());
 
-            // Atualiza o estoque do produto
-            produto.setQuantidadeEmEstoque(produto.getQuantidadeEmEstoque() - itemDTO.getQuantidade());
-            produtoRepository.save(produto);
+            // Atualiza o estoque na tabela de saldo
+            saldo.setQuantidadeAtual(saldo.getQuantidadeAtual() - itemDTO.getQuantidade());
+            estoqueSaldoRepository.save(saldo);
 
             // Calcula subtotal
-            BigDecimal precoUnitario = produto.getValorVenda();
+            BigDecimal precoUnitario = variacao.getPrecoVenda();
             BigDecimal subtotal = precoUnitario.multiply(BigDecimal.valueOf(itemDTO.getQuantidade()));
 
-            // Cria o item da venda
+            // Cria o item da venda (Agora usando ProdutoVariacao)
             VendaItem vendaItem = new VendaItem();
             vendaItem.setVenda(venda);
-            vendaItem.setProduto(produto);
+            vendaItem.setProdutoVariacao(variacao); // <--- Campo novo na entidade VendaItem
             vendaItem.setQuantidade(itemDTO.getQuantidade());
             vendaItem.setPrecoUnitario(precoUnitario);
             vendaItem.setSubtotal(subtotal);
@@ -131,17 +143,25 @@ public class VendaService {
         if (venda.getStatusVenda() == StatusVenda.CANCELADA) {
             throw new RuntimeException("Venda " + idVenda + " já está cancelada.");
         }
-        // --- Bloqueia cancelamento se o caixa estiver FECHADO ---
+        //  Bloqueia cancelamento se o caixa estiver FECHADO
         if (venda.getCaixa().getStatus() == StatusCaixa.FECHADO) {
             log.warn("Bloqueio: Tentativa de cancelar venda ID {} associada a um caixa já FECHADO (ID {}).", idVenda, venda.getCaixa().getIdCaixa());
             throw new RuntimeException("Não é possível cancelar esta venda pois o caixa já foi fechado e conferido.");
         }
 
+        // Recupera a unidade onde a venda foi feita para devolver o estoque lá
+        Unidade unidadeDaVenda = venda.getFuncionario().getUnidade();
+
         for (VendaItem item : venda.getItens()) {
-            Produto produto = item.getProduto();
-            if (produto != null && produtoRepository.existsById(produto.getIdProduto())) {
-                produto.setQuantidadeEmEstoque(produto.getQuantidadeEmEstoque() + item.getQuantidade());
-                produtoRepository.save(produto);
+            ProdutoVariacao variacao = item.getProdutoVariacao();
+
+            //  ATUALIZAÇÃO: Devolve para o EstoqueSaldo da Unidade
+            if (variacao != null) {
+                EstoqueSaldo saldo = estoqueSaldoRepository.findByUnidadeIdAndProdutoVariacaoId(unidadeDaVenda.getIdUnidade(), variacao.getId())
+                        .orElseThrow(() -> new RuntimeException("Erro ao estornar: Estoque não encontrado para o produto " + variacao.getNomeCompletoConcatenado()));
+
+                saldo.setQuantidadeAtual(saldo.getQuantidadeAtual() + item.getQuantidade());
+                estoqueSaldoRepository.save(saldo);
             }
         }
 
@@ -157,34 +177,44 @@ public class VendaService {
 
         validarPermissao(idFuncionario, PERMISSAO_GERENCIAR_VENDA, "reativar venda");
 
-        // --- Verifica se a venda pode ser reativada ---
+        //  Verifica se a venda pode ser reativada
         Venda venda = findVendaById(idVenda);
         if (venda.getStatusVenda() == StatusVenda.REALIZADA) {
             throw new RuntimeException("Venda " + idVenda + " já está realizada.");
         }
 
-        // --- Bloqueia reativação se o caixa estiver FECHADO ---
+        //  Bloqueia reativação se o caixa estiver FECHADO
         if (venda.getCaixa().getStatus() == StatusCaixa.FECHADO) {
             throw new RuntimeException("Não é possível reativar esta venda pois o caixa já foi fechado.");
         }
 
-        // --- Verifica estoque disponível para reativação ---
+        // Unidade para baixar o estoque novamente
+        Unidade unidadeDaVenda = venda.getFuncionario().getUnidade();
+
+        // Verifica estoque disponível para reativação
         for (VendaItem item : venda.getItens()) {
-            Produto produto = item.getProduto();
-            if (produto == null) {
+            ProdutoVariacao variacao = item.getProdutoVariacao();
+            if (variacao == null) {
                 throw new RuntimeException("Não é possível reativar: O produto associado não existe mais.");
             }
 
-            Produto produtoAtivo = produtoRepository.findByIdProdutoAndAtivoTrue(produto.getIdProduto())
-                    .orElseThrow(() -> new RuntimeException("Não é possível reativar: O produto " + produto.getNome() + " está inativo."));
-
-            // Verifica estoque disponível
-            if (produtoAtivo.getQuantidadeEmEstoque() < item.getQuantidade()) {
-                throw new RuntimeException("Estoque insuficiente para reativar venda: " + produtoAtivo.getNome());
+            // Verifica se produto ainda está ativo
+            if (!variacao.isAtivo()) {
+                throw new RuntimeException("Não é possível reativar: O produto " + variacao.getNomeCompletoConcatenado() + " está inativo.");
             }
 
-            produtoAtivo.setQuantidadeEmEstoque(produtoAtivo.getQuantidadeEmEstoque() - item.getQuantidade());
-            produtoRepository.save(produtoAtivo);
+            // Verifica saldo na tabela EstoqueSaldo
+            EstoqueSaldo saldo = estoqueSaldoRepository.findByUnidadeIdAndProdutoVariacaoId(unidadeDaVenda.getIdUnidade(), variacao.getId())
+                    .orElseThrow(() -> new RuntimeException("Estoque não encontrado para reativar item: " + variacao.getNomeCompletoConcatenado()));
+
+            // Verifica estoque disponível
+            if (saldo.getQuantidadeAtual() < item.getQuantidade()) {
+                throw new RuntimeException("Estoque insuficiente para reativar venda: " + variacao.getNomeCompletoConcatenado());
+            }
+
+            // Baixa novamente
+            saldo.setQuantidadeAtual(saldo.getQuantidadeAtual() - item.getQuantidade());
+            estoqueSaldoRepository.save(saldo);
         }
 
         venda.setStatusVenda(StatusVenda.REALIZADA);
@@ -225,8 +255,8 @@ public class VendaService {
     private VendaResponseDTO toResponseDTO(Venda venda) {
         List<VendaItemResponseDTO> itensDTO = venda.getItens().stream()
                 .map(item -> new VendaItemResponseDTO(
-                        item.getProduto().getIdProduto(),
-                        item.getProduto().getNome(),
+                        item.getProdutoVariacao().getId(), // Pega ID da Variação
+                        item.getProdutoVariacao().getNomeCompletoConcatenado(), // Pega nome completo (Pai + Variação)
                         item.getQuantidade(),
                         item.getPrecoUnitario(),
                         item.getSubtotal()

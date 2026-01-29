@@ -27,8 +27,8 @@ public class VendaItem {
 
     // Produto associado ao item da venda
     @ManyToOne(optional = false)
-    @JoinColumn(name = "id_produto", nullable = false)
-    private Produto produto;
+    @JoinColumn(name = "id_produto_variacao", nullable = false)
+    private ProdutoVariacao produtoVariacao;
 
     // Quantidade do produto no item da venda
     @NotNull(message = "A quantidade é obrigatória.")
