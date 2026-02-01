@@ -47,4 +47,13 @@ public class ProdutoController {
         service.atualizarProdutoCompleto(id, dto);
         return ResponseEntity.ok().build();
     }
+
+    // DELETAR (DELETE LÓGICO)
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deletar(
+            @PathVariable Long id,
+            @RequestParam Long idFuncionario) {
+        service.deletarProdutoLogicamente(id, idFuncionario);
+        return ResponseEntity.noContent().build();
+    }
 }
