@@ -5,6 +5,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import lombok.*;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Data
@@ -26,4 +27,11 @@ public class VendaDTO {
 
     @Size(max = 255, message = "Observações não podem ter mais que 255 caracteres")
     private String observacoes;
+
+    // Cupom de desconto opcional
+    private String codigoCupom;
+
+    // Desconto manual opcional
+    @DecimalMin(value = "0.00", message = "O desconto manual não pode ser negativo")
+    private BigDecimal descontoManual;
 }
