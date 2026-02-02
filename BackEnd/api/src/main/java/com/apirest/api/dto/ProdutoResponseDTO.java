@@ -1,21 +1,25 @@
 package com.apirest.api.dto;
 
-import lombok.*;
-import java.math.BigDecimal;
-
-import java.math.BigDecimal;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import java.util.List;
 
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class ProdutoResponseDTO {
-    private Long idProduto;
-    private String nome;
+    // Atributos do PRODUTO
+    private Long id;
+    private String nomeGenerico;
+    private String marca;
     private String descricao;
+    private String ncm;
     private String categoria;
-    private BigDecimal valorVenda;
-    private Integer quantidadeEmEstoque;
-    private String statusEstoque; // "Esgotado", "Quase Esgotado", "Disponível"
     private boolean ativo;
-}
 
+    // Atributos das VARIAÇÕES do produto
+    private List<VariacaoResponseDTO> variacoes;
+}

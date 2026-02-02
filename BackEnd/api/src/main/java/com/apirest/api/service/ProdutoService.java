@@ -1,19 +1,14 @@
 package com.apirest.api.service;
 
-
 import com.apirest.api.dto.*;
-import com.apirest.api.entity.Cargo;
-import com.apirest.api.entity.Categoria;
-import com.apirest.api.entity.Funcionario;
-import com.apirest.api.entity.Produto;
-import com.apirest.api.repository.FuncionarioRepository;
-import com.apirest.api.repository.ProdutoRepository;
+import com.apirest.api.entity.*;
+import com.apirest.api.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -21,171 +16,236 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ProdutoService {
 
-    private final ProdutoRepository produtoRepository;
+    private final ProdutoPaiRepository produtoPaiRepository;
+    private final ProdutoVariacaoRepository produtoVariacaoRepository;
+    private final EstoqueSaldoRepository estoqueSaldoRepository;
+
+    //  AUXILIARES
     private final CategoriaService categoriaService;
     private final FuncionarioRepository funcionarioRepository;
 
+    // PERMISSÕES
     private static final Set<String> PERMISSAO_CRIAR = Set.of("DONO", "GERENTE", "LIDER_VENDA", "ADMIN");
-    private static final Set<String> PERMISSAO_EDITAR_INFO = Set.of("DONO", "GERENTE", "LIDER_VENDA", "ADMIN", "RECEPCIONISTA");
-    private static final Set<String> PERMISSAO_EDITAR_PRECO_ESTOQUE_DESC = Set.of("DONO", "GERENTE", "LIDER_VENDA", "ADMIN");
+    private static final Set<String> PERMISSAO_EDITAR = Set.of("DONO", "GERENTE", "LIDER_VENDA", "ADMIN");
     private static final Set<String> PERMISSAO_DELETAR = Set.of("DONO", "GERENTE", "LIDER_VENDA", "ADMIN");
 
+    // CADASTRO (POST)
     @Transactional
-    public ProdutoResponseDTO criarProduto(ProdutoDTO dto) {
+    public void cadastrarProdutoCompleto(CadastroProdutoDTO dto) {
         validarPermissao(dto.getIdFuncionario(), PERMISSAO_CRIAR, "cadastrar produto");
+        validarPrecos(dto.getVariacoes());
 
-        if (dto.getValorCusto().compareTo(dto.getValorVenda()) >= 0) {
-            throw new RuntimeException("O valor de venda deve ser maior que o valor de custo.");
-        }
+        Funcionario funcionario = funcionarioRepository.findById(dto.getIdFuncionario())
+                .orElseThrow(() -> new RuntimeException("Funcionário não encontrado"));
+        Unidade unidadeAtual = funcionario.getUnidade();
+        Categoria categoria = categoriaService.findOrCreateByNameNormalize(dto.getNomeCategoria());
 
-        String nomeNormalizado = dto.getNome().trim().toUpperCase();
-        if (produtoRepository.existsByNomeAndAtivoTrue(nomeNormalizado)) {
-            throw new RuntimeException("Produto com este nome já existe");
-        }
-
-        Categoria categoria = categoriaService.findOrCreateByNameNormalize(dto.getCategoria());
-
-        Produto produto = Produto.builder()
-                .nome(nomeNormalizado)
-                .categoria(categoria)
-                .valorCusto(dto.getValorCusto())
-                .valorVenda(dto.getValorVenda())
+        // Criar ProdutoPai
+        ProdutoPai pai = ProdutoPai.builder()
+                .nomeGenerico(dto.getNomeGenerico().trim().toUpperCase())
+                .marca(dto.getMarca())
+                .ncm(dto.getNcm())
                 .descricao(dto.getDescricao())
-                .quantidadeEmEstoque(dto.getQuantidadeEmEstoque())
-                .quantidadeMinima(dto.getQuantidadeMinima())
+                .categoria(categoria)
                 .ativo(true)
                 .build();
 
-        Produto salvo = produtoRepository.save(produto);
-        return toResponseDTO(salvo);
-    }
+        pai = produtoPaiRepository.save(pai);
 
-    @Transactional
-    public ProdutoResponseDTO atualizarInformacoes(Long idProduto, ProdutoUpdateDTO dto) {
-        validarPermissao(dto.getIdFuncionario(), PERMISSAO_EDITAR_INFO, "modificar informações do produto");
-
-        if (dto.getValorCusto().compareTo(dto.getValorVenda()) >= 0) {
-            throw new RuntimeException("O valor de venda deve ser maior que o valor de custo.");
-        }
-
-        // Busca o produto, mesmo que esteja inativo
-        Produto produto = findProdutoById(idProduto);
-
-        if (dto.getAtivo() != null && dto.getAtivo() && !produto.isAtivo()) {
-            // Verifica permissão para reativar
-            validarPermissao(dto.getIdFuncionario(), PERMISSAO_DELETAR, "reativar produto");
-
-            // Verifica se já existe um produto ativo com o mesmo nome
-            if (produtoRepository.existsByNomeAndAtivoTrue(produto.getNome())) {
-                throw new RuntimeException("Não é possível reativar, pois já existe um produto ativo com o nome: " + produto.getNome());
+        // Criar variações e estoques
+        if (dto.getVariacoes() != null) {
+            for (CadastroProdutoDTO.VariacaoDTO varDto : dto.getVariacoes()) {
+                salvarVariacaoEEstoque(pai, varDto, unidadeAtual);
             }
-            produto.setAtivo(true);
         }
-
-        produto.setNome(dto.getNome().trim().toUpperCase());
-        produto.setDescricao(dto.getDescricao());
-        Categoria categoria = categoriaService.findOrCreateByNameNormalize(dto.getCategoria());
-        produto.setCategoria(categoria);
-
-        produto.setValorCusto(dto.getValorCusto());
-        produto.setValorVenda(dto.getValorVenda());
-        produto.setQuantidadeEmEstoque(dto.getQuantidadeEmEstoque());
-        produto.setQuantidadeMinima(dto.getQuantidadeMinima());
-
-        Produto salvo = produtoRepository.save(produto);
-        return toResponseDTO(salvo);
     }
 
+    // ATUALIZAÇÃO (PUT)
     @Transactional
-    public ProdutoResponseDTO atualizarPrecoEEstoque(Long idProduto, ProdutoPrecoEstoqueUpdateDTO dto) {
-        validarPermissao(dto.getIdFuncionario(), PERMISSAO_EDITAR_PRECO_ESTOQUE_DESC, "modificar preço, estoque ou descrição");
-        if (dto.getValorCusto().compareTo(dto.getValorVenda()) >= 0) {
-            throw new RuntimeException("O valor de venda deve ser maior que o valor de custo.");
+    public void atualizarProdutoCompleto(Long idPai, CadastroProdutoDTO dto) {
+        validarPermissao(dto.getIdFuncionario(), PERMISSAO_EDITAR, "editar produto");
+
+        ProdutoPai pai = produtoPaiRepository.findById(idPai)
+                .orElseThrow(() -> new RuntimeException("Produto não encontrado"));
+
+        validarPrecos(dto.getVariacoes());
+
+        // Reativar se estiver inativo
+        if (!pai.isAtivo()) {
+            validarPermissao(dto.getIdFuncionario(), PERMISSAO_DELETAR, "reativar produto inativo");
+            pai.setAtivo(true);
         }
 
-        // Busca o produto, mesmo que esteja inativo
-        Produto produto = findProdutoById(idProduto);
+        // Atualizar dados do ProdutoPai
+        pai.setNomeGenerico(dto.getNomeGenerico().trim().toUpperCase());
+        pai.setMarca(dto.getMarca());
+        pai.setNcm(dto.getNcm());
+        pai.setDescricao(dto.getDescricao());
+        pai.setCategoria(categoriaService.findOrCreateByNameNormalize(dto.getNomeCategoria()));
 
-        if (dto.getAtivo() != null && dto.getAtivo() && !produto.isAtivo()) {
-            // Verifica permissão para reativar
-            validarPermissao(dto.getIdFuncionario(), PERMISSAO_DELETAR, "reativar produto");
+        produtoPaiRepository.save(pai);
 
-            if (produtoRepository.existsByNomeAndAtivoTrue(produto.getNome())) {
-                throw new RuntimeException("Não é possível reativar, pois já existe um produto ativo com o nome: " + produto.getNome());
+        // Atualizar ou adicionar variações
+        Funcionario func = funcionarioRepository.findById(dto.getIdFuncionario()).orElseThrow();
+
+        if (dto.getVariacoes() != null) {
+            for (CadastroProdutoDTO.VariacaoDTO varDto : dto.getVariacoes()) {
+                // Verificar se a variação já existe
+                Optional<ProdutoVariacao> varExistente = pai.getVariacoes().stream()
+                        .filter(v -> v.getNomeVariacao().equalsIgnoreCase(varDto.getNomeVariacao()))
+                        .findFirst();
+
+                if (varExistente.isPresent()) {
+                    ProdutoVariacao v = varExistente.get();
+                    v.setPrecoCusto(varDto.getPrecoCusto());
+                    v.setPrecoVenda(varDto.getPrecoVenda());
+                    v.setCodigoBarras(varDto.getCodigoBarras());
+                    if(!v.isAtivo()) v.setAtivo(true);
+                    produtoVariacaoRepository.save(v);
+                } else {
+                    salvarVariacaoEEstoque(pai, varDto, func.getUnidade());
+                }
             }
-            produto.setAtivo(true);
         }
-
-        produto.setValorCusto(dto.getValorCusto());
-        produto.setValorVenda(dto.getValorVenda());
-        produto.setQuantidadeEmEstoque(dto.getQuantidadeEmEstoque());
-        produto.setQuantidadeMinima(dto.getQuantidadeMinima());
-        produto.setDescricao(dto.getDescricao());
-
-        Produto salvo = produtoRepository.save(produto);
-        return toResponseDTO(salvo);
     }
 
+    // DELETE LÓGICO
     @Transactional
-    public void deletarProdutoLogicamente(Long idProduto, Long idFuncionario) {
+    public void deletarProdutoLogicamente(Long idPai, Long idFuncionario) {
         validarPermissao(idFuncionario, PERMISSAO_DELETAR, "deletar produto");
-        Produto produto = findProdutoAtivoById(idProduto);
-        produto.setAtivo(false);
-        produtoRepository.save(produto);
+
+        ProdutoPai pai = produtoPaiRepository.findById(idPai)
+                .orElseThrow(() -> new RuntimeException("Produto não encontrado"));
+
+        if (!pai.isAtivo()) throw new RuntimeException("Produto já está inativo.");
+
+        pai.setAtivo(false);
+        // Desativar todas as variações associadas
+        pai.getVariacoes().forEach(v -> v.setAtivo(false));
+
+        produtoPaiRepository.save(pai);
     }
 
-    public List<ProdutoResponseDTO> listarProdutosAtivos() {
-        return produtoRepository.findAllByAtivoTrue().stream()
-                .map(this::toResponseDTO)
+    // LISTAGEM (GET)
+    public List<ProdutoResponseDTO> listarTudo(Long idFuncionarioSolicitante) {
+        Long idUnidadeAlvo = null;
+        if (idFuncionarioSolicitante != null) {
+            Funcionario f = funcionarioRepository.findById(idFuncionarioSolicitante).orElse(null);
+            if (f != null) idUnidadeAlvo = f.getUnidade().getIdUnidade();
+        }
+        Long finalIdUnidade = idUnidadeAlvo;
+
+        // Filtrar apenas produtos ativos
+        return produtoPaiRepository.findAll().stream()
+                .filter(ProdutoPai::isAtivo)
+                .map(pai -> montarDTOResposta(pai, finalIdUnidade))
                 .collect(Collectors.toList());
     }
 
-    public ProdutoResponseDTO getProdutoResponseById(Long id) {
-        Produto produto = findProdutoById(id);
-        return toResponseDTO(produto);
+    public ProdutoResponseDTO buscarPorId(Long id, Long idFuncionario) {
+        ProdutoPai pai = produtoPaiRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Produto não encontrado"));
+
+        Long idUnidade = null;
+        if(idFuncionario != null){
+            Funcionario f = funcionarioRepository.findById(idFuncionario).orElse(null);
+            if(f != null) idUnidade = f.getUnidade().getIdUnidade();
+        }
+
+        return montarDTOResposta(pai, idUnidade);
     }
 
-    private Produto findProdutoById(Long id) {
-        return produtoRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Produto não encontrado. ID: " + id));
+    // AUXILIARES
+
+    private void salvarVariacaoEEstoque(ProdutoPai pai, CadastroProdutoDTO.VariacaoDTO varDto, Unidade unidade) {
+        ProdutoVariacao variacao = ProdutoVariacao.builder()
+                .produtoPai(pai)
+                .nomeVariacao(varDto.getNomeVariacao())
+                .precoCusto(varDto.getPrecoCusto())
+                .precoVenda(varDto.getPrecoVenda())
+                .codigoBarras(varDto.getCodigoBarras())
+                .ativo(true)
+                .build();
+
+        variacao.setNomeCompletoConcatenado(pai.getNomeGenerico() + " - " + varDto.getNomeVariacao());
+        variacao.setSku("SKU-" + System.currentTimeMillis() + "-" + (int)(Math.random()*1000)); // SKU Gerado
+
+        variacao = produtoVariacaoRepository.save(variacao);
+
+        EstoqueSaldo saldo = EstoqueSaldo.builder()
+                .unidade(unidade)
+                .produtoVariacao(variacao)
+                .quantidadeAtual(varDto.getEstoqueInicial() != null ? varDto.getEstoqueInicial() : 0)
+                .quantidadeMinima(varDto.getEstoqueMinimo() != null ? varDto.getEstoqueMinimo() : 5)
+                .build();
+        estoqueSaldoRepository.save(saldo);
     }
 
-    private Produto findProdutoAtivoById(Long id) {
-        return produtoRepository.findByIdProdutoAndAtivoTrue(id)
-                .orElseThrow(() -> new RuntimeException("Produto não encontrado ou inativo. ID: " + id));
+    private ProdutoResponseDTO montarDTOResposta(ProdutoPai pai, Long idUnidade) {
+        List<VariacaoResponseDTO> variacoesDTO = pai.getVariacoes().stream()
+                .filter(ProdutoVariacao::isAtivo)
+                .map(v -> {
+                    Integer qtd = 0;
+                    Integer min = 5;
+
+                    // Buscar saldo se idUnidade for fornecido
+                    if (idUnidade != null) {
+                        Optional<EstoqueSaldo> saldoOpt = estoqueSaldoRepository.findByUnidadeIdAndProdutoVariacaoId(idUnidade, v.getId());
+                        if (saldoOpt.isPresent()) {
+                            qtd = saldoOpt.get().getQuantidadeAtual();
+                            min = saldoOpt.get().getQuantidadeMinima();
+                        }
+                    }
+
+                    return VariacaoResponseDTO.builder()
+                            .id(v.getId())
+                            .nomeVariacao(v.getNomeVariacao())
+                            .nomeCompleto(v.getNomeCompletoConcatenado())
+                            .sku(v.getSku())
+                            .codigoBarras(v.getCodigoBarras())
+                            .precoCusto(v.getPrecoCusto())
+                            .precoVenda(v.getPrecoVenda())
+                            .estoqueAtual(qtd)
+                            .statusEstoque(calcularStatusEstoque(qtd, min))
+                            .ativo(v.isAtivo())
+                            .build();
+                }).collect(Collectors.toList());
+
+        return ProdutoResponseDTO.builder()
+                .id(pai.getId())
+                .nomeGenerico(pai.getNomeGenerico())
+                .marca(pai.getMarca())
+                .descricao(pai.getDescricao())
+                .ncm(pai.getNcm())
+                .categoria(pai.getCategoria().getNome())
+                .ativo(pai.isAtivo())
+                .variacoes(variacoesDTO)
+                .build();
     }
 
-    private void validarPermissao(Long idFuncionario, Set<String> cargosPermitidos, String acao) {
-        Funcionario funcionario = funcionarioRepository.findById(idFuncionario)
+    // CÁLCULO STATUS ESTOQUE
+    private String calcularStatusEstoque(Integer qtd, Integer min) {
+        if (qtd == null || qtd <= 0) return "Esgotado";
+        int minimo = (min != null && min >= 0) ? min : 5;
+        if (qtd <= minimo) return "Quase Esgotado";
+        return "Disponível";
+    }
+
+    private void validarPermissao(Long idFuncionario, Set<String> cargos, String acao) {
+        if(idFuncionario == null) return;
+        Funcionario f = funcionarioRepository.findById(idFuncionario)
                 .orElseThrow(() -> new RuntimeException("Funcionário não encontrado"));
-        // Verifica se o cargo do funcionário está na lista de cargos permitidos
-        if (!cargosPermitidos.contains(funcionario.getCargo().name())) {
-            throw new RuntimeException("Permissão negada: cargo não autorizado a " + acao);
+        if (!cargos.contains(f.getCargo().name())) {
+            throw new RuntimeException("Permissão negada: seu cargo não permite " + acao);
         }
     }
 
-    private ProdutoResponseDTO toResponseDTO(Produto p) {
-        ProdutoResponseDTO dto = new ProdutoResponseDTO();
-        dto.setIdProduto(p.getIdProduto());
-        dto.setNome(p.getNome());
-        dto.setDescricao(p.getDescricao());
-        dto.setCategoria(p.getCategoria().getNome());
-        dto.setValorVenda(p.getValorVenda());
-        dto.setQuantidadeEmEstoque(p.getQuantidadeEmEstoque());
-        dto.setStatusEstoque(statusEstoque(p.getQuantidadeEmEstoque(), p.getQuantidadeMinima()));        dto.setAtivo(p.isAtivo());
-        return dto;
-    }
-        // Define o status do estoque com base na quantidade
-        private String statusEstoque(Integer quantidade, Integer quantidadeMinima) {
-            if (quantidade == null || quantidade <= 0) {
-                return "Esgotado";
+    private void validarPrecos(List<CadastroProdutoDTO.VariacaoDTO> variacoes) {
+        if(variacoes == null) return;
+        for (CadastroProdutoDTO.VariacaoDTO v : variacoes) {
+            if (v.getPrecoCusto().compareTo(v.getPrecoVenda()) >= 0) {
+                throw new RuntimeException("Erro no item '" + v.getNomeVariacao() + "': Preço de venda deve ser maior que o custo.");
             }
-            // Verifica se a quantidade mínima está definida
-            int min = (quantidadeMinima != null && quantidadeMinima >= 0) ? quantidadeMinima : 10;
-
-                if (quantidade <= min) {
-                    return "Quase Esgotado";
-            }
-            return "Disponível";
         }
+    }
 }
