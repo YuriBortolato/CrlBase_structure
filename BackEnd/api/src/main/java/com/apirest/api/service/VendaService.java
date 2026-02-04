@@ -101,6 +101,9 @@ public class VendaService {
             valorBruto = valorBruto.add(subtotal);
         }
 
+        // associa itens à venda
+        venda.setItens(itensVenda);
+
         BigDecimal totalDesconto = BigDecimal.ZERO;
         List<VendaDesconto> descontosParaSalvar = new ArrayList<>();
 
