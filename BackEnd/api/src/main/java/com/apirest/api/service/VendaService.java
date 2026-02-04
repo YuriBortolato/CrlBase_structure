@@ -118,13 +118,33 @@ public class VendaService {
             descontoService.consumirVoucher(dto.getCodigoCupom());
         }
 
-        // Aplica Manual
+        // Aplica Manual (COM SEGURANÇA E ALÇADA)
         if (dto.getDescontoManual() != null && dto.getDescontoManual().compareTo(BigDecimal.ZERO) > 0) {
+
+            // 1. Identifica o cargo (Já temos a variável 'funcionario' no início do método)
+            String cargoAtual = funcionario.getCargo().name();
+
+            // 2. Define quem tem poder ilimitado (Gerentes/Donos)
+            boolean ehGerente = Set.of("DONO", "GERENTE", "ADMIN").contains(cargoAtual);
+
+            // 3. Regra para Vendedores Comuns
+            if (!ehGerente) {
+                // Exemplo: Vendedor só pode dar até R$ 20,00 de desconto manual
+                BigDecimal limiteVendedor = new BigDecimal("20.00");
+
+                if (dto.getDescontoManual().compareTo(limiteVendedor) > 0) {
+                    throw new RuntimeException("PERMISSÃO NEGADA: Seu cargo (" + cargoAtual +
+                            ") só permite descontos manuais de até R$ " + limiteVendedor);
+                }
+            }
+
+            // Se passou na validação, aplica o desconto
             totalDesconto = totalDesconto.add(dto.getDescontoManual());
 
             descontosParaSalvar.add(VendaDesconto.builder()
+                    .venda(venda)
                     .origem("MANUAL")
-                    .codigoReferencia("VENDEDOR")
+                    .codigoReferencia("AUTORIZADO_" + cargoAtual)
                     .valorDescontoAplicado(dto.getDescontoManual())
                     .build());
         }
