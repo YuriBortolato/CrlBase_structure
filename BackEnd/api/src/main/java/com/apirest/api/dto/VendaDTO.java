@@ -34,4 +34,8 @@ public class VendaDTO {
     // Desconto manual opcional
     @DecimalMin(value = "0.00", message = "O desconto manual não pode ser negativo")
     private BigDecimal descontoManual;
+
+    // Valor pago pelo cliente
+    @DecimalMin(value = "0.00", message = "O valor pago não pode ser negativo")
+    private BigDecimal valorPagoCliente; // Valor pago fisico pelo cliente
 }

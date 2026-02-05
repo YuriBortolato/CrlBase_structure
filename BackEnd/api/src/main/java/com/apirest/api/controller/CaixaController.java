@@ -2,6 +2,7 @@ package com.apirest.api.controller;
 
 import com.apirest.api.dto.*;
 import com.apirest.api.entity.Caixa;
+import com.apirest.api.entity.CaixaMovimentacao;
 import com.apirest.api.entity.FiltroPeriodo;
 import com.apirest.api.entity.StatusCaixa;
 import com.apirest.api.service.CaixaService;
@@ -12,6 +13,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -26,12 +28,14 @@ public class CaixaController {
 
     private final CaixaService caixaService;
 
+    // ABRIR CAIXA
     @PostMapping("/abrir")
     public ResponseEntity<CaixaResponseDTO> abrirCaixa(@Valid @RequestBody CaixaAberturaDTO dto) {
         Caixa caixaAberto = caixaService.abrirCaixa(dto);
         return new ResponseEntity<>(caixaService.toResponseDTO(caixaAberto), HttpStatus.CREATED);
     }
 
+    // FECHAR CAIXA
     @PostMapping("/fechar/{id}")
     public ResponseEntity<CaixaResponseDTO> fecharCaixa(@PathVariable Long id, @Valid @RequestBody CaixaFechamentoDTO dto) {
         // Fecha o caixa e recebe a entidade
@@ -44,6 +48,31 @@ public class CaixaController {
     }
 
     // Endpoint para gerar relatório individual de um funcionário
+    @PostMapping("/{id}/movimentacao")
+    public ResponseEntity<?> adicionarMovimentacao(
+            @PathVariable Long id,
+            @RequestBody Map<String, Object> payload
+    ) {
+        //
+        String tipo = (String) payload.get("tipo");
+
+        // Conversão segura de valor
+        BigDecimal valor;
+        try {
+            valor = new BigDecimal(payload.get("valor").toString());
+        } catch (Exception e) {
+            throw new RuntimeException("Valor inválido.");
+        }
+
+        String motivo = (String) payload.get("motivo");
+
+        CaixaMovimentacao mov = caixaService.adicionarMovimentacao(id, tipo, valor, motivo);
+        return ResponseEntity.ok(Map.of("mensagem", "Movimentação registrada com sucesso!", "id", mov.getId()));
+    }
+    //
+
+    //
+
     @GetMapping("/meu-resumo/{idFuncionario}")
     public ResponseEntity<RelatorioIndividualDTO> meuResumo(@PathVariable Long idFuncionario) {
         RelatorioIndividualDTO relatorio = caixaService.gerarRelatorioIndividual(idFuncionario);
@@ -81,18 +110,15 @@ public class CaixaController {
     @GetMapping("/relatorio")
     public ResponseEntity<Map<String, Object>> getRelatorio(
             @RequestHeader("id-solicitante") Long idSolicitante, // SIMULA LOGIN: Quem está pedindo?
-
             @RequestParam(required = false) Long idFuncionario, // Filtro opcional
             @RequestParam(required = false, defaultValue = "HOJE") FiltroPeriodo periodo, // HOJE, ONTEM, DIAS_7...
             @RequestParam(required = false) StatusCaixa status, // ABERTO, FECHADO (Null = Todos)
-
-            // Apenas se periodo for CUSTOM
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataInicio,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataFim
     ) {
         // Validação simples de segurança para teste
         if (idSolicitante == null) {
-            throw new RuntimeException("Header 'id-solicitante' é obrigatório para identificar quem pede o relatório.");
+            throw new RuntimeException("Header 'id-solicitante' é obrigatório.");
         }
 
         Map<String, Object> resultado = caixaService.gerarRelatorioAvancado(
@@ -103,7 +129,6 @@ public class CaixaController {
                 dataInicio,
                 dataFim
         );
-
         return ResponseEntity.ok(resultado);
     }
 

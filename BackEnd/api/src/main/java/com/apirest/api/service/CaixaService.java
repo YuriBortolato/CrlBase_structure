@@ -2,6 +2,7 @@ package com.apirest.api.service;
 
 import com.apirest.api.dto.*;
 import com.apirest.api.entity.*;
+import com.apirest.api.repository.CaixaMovimentacaoRepository;
 import com.apirest.api.repository.CaixaRepository;
 import com.apirest.api.repository.FuncionarioRepository;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +31,7 @@ public class CaixaService {
 
     private final CaixaRepository caixaRepository;
     private final FuncionarioRepository funcionarioRepository;
+    private final CaixaMovimentacaoRepository caixaMovimentacaoRepository;
 
     // --- DEFINIÇÃO DOS CARGOS ---
     private static final Set<Cargo> PERMISSAO_CARGO_ALTO = Set.of(
@@ -86,9 +88,17 @@ public class CaixaService {
                 .add(dto.getCredito())
                 .add(dto.getCrediario());
 
-        // Calcular Quebra
-        BigDecimal esperado = caixa.getSaldoInicial().add(totalVendasSistema);
-        BigDecimal quebra = totalInformado.subtract(esperado);
+        // Calcular suprimentos e sangrias
+        BigDecimal totalSuprimentos = caixaMovimentacaoRepository.somarPorTipo(caixa, CaixaMovimentacao.TipoMovimentacao.SUPRIMENTO);
+        BigDecimal totalSangrias = caixaMovimentacaoRepository.somarPorTipo(caixa, CaixaMovimentacao.TipoMovimentacao.SANGRIA);
+
+        if (totalSuprimentos == null) totalSuprimentos = BigDecimal.ZERO;
+        if (totalSangrias == null) totalSangrias = BigDecimal.ZERO;
+
+        BigDecimal esperado = caixa.getSaldoInicial()
+                .add(totalVendasSistema)
+                .add(totalSuprimentos)
+                .subtract(totalSangrias);        BigDecimal quebra = totalInformado.subtract(esperado);
 
         // Atualiza Entidade
         caixa.setConferidoDinheiro(dto.getDinheiro());
@@ -380,5 +390,34 @@ public class CaixaService {
                 .previstoCredito(sisCredito)
                 .previstoCrediario(sisCrediario)
                 .build();
+    }
+
+    // Adicionar Movimentação (Sangria/Suprimento)
+    @Transactional
+    public CaixaMovimentacao adicionarMovimentacao(Long idCaixa, String tipo, BigDecimal valor, String motivo) {
+        Caixa caixa = caixaRepository.findById(idCaixa)
+                .orElseThrow(() -> new RuntimeException("Caixa não encontrado"));
+
+        if (caixa.getStatus() != StatusCaixa.ABERTO) {
+            throw new RuntimeException("Só é possível movimentar caixas ABERTOS.");
+        }
+
+        // Converte string para Enum (SANGRIA ou SUPRIMENTO)
+        CaixaMovimentacao.TipoMovimentacao tipoEnum;
+        try {
+            tipoEnum = CaixaMovimentacao.TipoMovimentacao.valueOf(tipo.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new RuntimeException("Tipo de movimentação inválido. Use 'SANGRIA' ou 'SUPRIMENTO'.");
+        }
+
+        CaixaMovimentacao mov = CaixaMovimentacao.builder()
+                .caixa(caixa)
+                .tipo(tipoEnum)
+                .valor(valor)
+                .motivo(motivo)
+                .dataHora(LocalDateTime.now(ZoneId.of("America/Sao_Paulo")))
+                .build();
+
+        return caixaMovimentacaoRepository.save(mov);
     }
 }

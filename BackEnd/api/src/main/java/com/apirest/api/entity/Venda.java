@@ -57,6 +57,10 @@ public class Venda {
     @Column(name = "valor_total", nullable = false, precision = 12, scale = 2)
     private BigDecimal valorTotal;
 
+    // Valor do desconto aplicado na venda
+    @Column(name = "troco_total", precision = 12, scale = 2)
+    private BigDecimal trocoTotal;
+
     // Data e hora da venda
     @Column(name = "data_venda", nullable = false, updatable = false)
     private LocalDateTime dataVenda;

@@ -6,5 +6,5 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface VendaDescontoRepository extends JpaRepository<VendaDesconto, Long> {
-
+ // Repositório para gerenciar entidades VendaDesconto
 }

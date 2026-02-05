@@ -7,6 +7,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.apirest.api.entity.VendaPagamento;
+import com.apirest.api.repository.VendaPagamentoRepository;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -30,6 +32,8 @@ public class VendaService {
 
     private final DescontoService descontoService;
     private final VendaDescontoRepository vendaDescontoRepository;
+
+    private final VendaPagamentoRepository vendaPagamentoRepository;
 
     private static final Set<String> PERMISSAO_GERENCIAR_VENDA = Set.of("DONO", "GERENTE", "LIDER_VENDA", "ADMIN");
 
@@ -169,6 +173,42 @@ public class VendaService {
             vd.setVenda(vendaSalva);
             vendaDescontoRepository.save(vd);
         }
+
+        BigDecimal valorPago = dto.getValorPagoCliente();
+        BigDecimal troco = BigDecimal.ZERO;
+
+        // Se não informou valor (ex: cartão), assume pagamento exato
+        if (valorPago == null || valorPago.compareTo(BigDecimal.ZERO) == 0) {
+            valorPago = vendaSalva.getValorTotal();
+        }
+
+        // Validação básica
+        if (valorPago.compareTo(vendaSalva.getValorTotal()) < 0) {
+            throw new RuntimeException("Valor pago insuficiente. Total: " + vendaSalva.getValorTotal() + ", Pago: " + valorPago);
+        }
+
+        // Se for DINHEIRO, calcula troco. Se for PIX/CARTÃO, troco é zero.
+        if (vendaSalva.getMetodoPagamento() == MetodoPagamento.DINHEIRO) {
+            troco = valorPago.subtract(vendaSalva.getValorTotal());
+        } else {
+            valorPago = vendaSalva.getValorTotal(); // Ajusta para não registrar pagamento maior que a venda em cartão
+        }
+
+        // Salva o detalhe do pagamento
+        VendaPagamento pagamento = VendaPagamento.builder()
+                .venda(vendaSalva)
+                .caixa(caixaAberto)
+                .formaPagamento(vendaSalva.getMetodoPagamento())
+                .valorPago(valorPago)
+                .trocoGerado(troco)
+                .valorLiquido(vendaSalva.getValorTotal())
+                .build();
+
+        vendaPagamentoRepository.save(pagamento);
+
+        // Atualiza o troco na Venda (para consulta rápida)
+        vendaSalva.setTrocoTotal(troco);
+        vendaRepository.save(vendaSalva);
 
         return toResponseDTO(vendaSalva);
     }
