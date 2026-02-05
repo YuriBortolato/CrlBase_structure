@@ -7,6 +7,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.apirest.api.entity.VendaPagamento;
+import com.apirest.api.repository.VendaPagamentoRepository;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -27,6 +29,11 @@ public class VendaService {
 
     private final ProdutoVariacaoRepository produtoVariacaoRepository;
     private final EstoqueSaldoRepository estoqueSaldoRepository;
+
+    private final DescontoService descontoService;
+    private final VendaDescontoRepository vendaDescontoRepository;
+
+    private final VendaPagamentoRepository vendaPagamentoRepository;
 
     private static final Set<String> PERMISSAO_GERENCIAR_VENDA = Set.of("DONO", "GERENTE", "LIDER_VENDA", "ADMIN");
 
@@ -61,13 +68,11 @@ public class VendaService {
                 .statusVenda(StatusVenda.REALIZADA)
                 .build();
 
-        BigDecimal valorTotalVenda = BigDecimal.ZERO;
+        BigDecimal valorBruto = BigDecimal.ZERO;
         List<VendaItem> itensVenda = new ArrayList<>();
 
         // processa cada item da venda
         for (VendaItemDTO itemDTO : dto.getItens()) {
-
-            // Busca a Variação (SKU) em vez do Produto antigo
             ProdutoVariacao variacao = produtoVariacaoRepository.findById(itemDTO.getIdProduto())
                     .orElseThrow(() -> new RuntimeException("Produto/Variação ID " + itemDTO.getIdProduto() + " não encontrado."));
 
@@ -75,21 +80,17 @@ public class VendaService {
                 throw new RuntimeException("Produto " + variacao.getNomeCompletoConcatenado() + " está inativo.");
             }
 
-            // Busca Saldo na Unidade Correta
             EstoqueSaldo saldo = estoqueSaldoRepository.findByUnidadeIdAndProdutoVariacaoId(unidadeVenda.getIdUnidade(), variacao.getId())
                     .orElseThrow(() -> new RuntimeException("Produto sem cadastro de estoque nesta unidade."));
 
-            // Valida Quantidade
             if (saldo.getQuantidadeAtual() < itemDTO.getQuantidade()) {
                 throw new RuntimeException("Estoque insuficiente para: " + variacao.getNomeCompletoConcatenado() +
                         ". Disponível: " + saldo.getQuantidadeAtual());
             }
 
-            // Baixa Estoque
             saldo.setQuantidadeAtual(saldo.getQuantidadeAtual() - itemDTO.getQuantidade());
             estoqueSaldoRepository.save(saldo);
 
-            // Cria Item
             BigDecimal subtotal = variacao.getPrecoVenda().multiply(BigDecimal.valueOf(itemDTO.getQuantidade()));
 
             VendaItem vendaItem = VendaItem.builder()
@@ -101,12 +102,115 @@ public class VendaService {
                     .build();
 
             itensVenda.add(vendaItem);
-            valorTotalVenda = valorTotalVenda.add(subtotal);
+            valorBruto = valorBruto.add(subtotal);
         }
 
+        // associa itens à venda
         venda.setItens(itensVenda);
-        venda.setValorTotal(valorTotalVenda);
-        return toResponseDTO(vendaRepository.save(venda));
+
+        BigDecimal totalDesconto = BigDecimal.ZERO;
+        List<VendaDesconto> descontosParaSalvar = new ArrayList<>();
+
+        // Aplica Cupom
+        if (dto.getCodigoCupom() != null && !dto.getCodigoCupom().isBlank()) {
+            BigDecimal valorDescCupom = descontoService.calcularDescontoVoucher(dto.getCodigoCupom(), valorBruto);
+            totalDesconto = totalDesconto.add(valorDescCupom);
+
+            descontosParaSalvar.add(VendaDesconto.builder()
+                    .origem("VOUCHER")
+                    .codigoReferencia(dto.getCodigoCupom())
+                    .valorDescontoAplicado(valorDescCupom)
+                    .build());
+
+            descontoService.consumirVoucher(dto.getCodigoCupom());
+        }
+
+        // Aplica Manual (COM SEGURANÇA E ALÇADA)
+        if (dto.getDescontoManual() != null && dto.getDescontoManual().compareTo(BigDecimal.ZERO) > 0) {
+
+            // 1. Identifica o cargo (Já temos a variável 'funcionario' no início do método)
+            String cargoAtual = funcionario.getCargo().name();
+
+            // 2. Define quem tem poder ilimitado (Gerentes/Donos)
+            boolean ehGerente = Set.of("DONO", "GERENTE", "ADMIN").contains(cargoAtual);
+
+            // 3. Regra para Vendedores Comuns
+            if (!ehGerente) {
+                // Exemplo: Vendedor só pode dar até R$ 20,00 de desconto manual
+                BigDecimal limiteVendedor = new BigDecimal("20.00");
+
+                if (dto.getDescontoManual().compareTo(limiteVendedor) > 0) {
+                    throw new RuntimeException("PERMISSÃO NEGADA: Seu cargo (" + cargoAtual +
+                            ") só permite descontos manuais de até R$ " + limiteVendedor);
+                }
+            }
+
+            // Se passou na validação, aplica o desconto
+            totalDesconto = totalDesconto.add(dto.getDescontoManual());
+
+            descontosParaSalvar.add(VendaDesconto.builder()
+                    .venda(venda)
+                    .origem("MANUAL")
+                    .codigoReferencia("AUTORIZADO_" + cargoAtual)
+                    .valorDescontoAplicado(dto.getDescontoManual())
+                    .build());
+        }
+
+        // Calcula Líquido e Trava Valor Negativo
+        BigDecimal valorLiquido = valorBruto.subtract(totalDesconto);
+        if (valorLiquido.compareTo(BigDecimal.ZERO) < 0) {
+            valorLiquido = BigDecimal.ZERO;
+        }
+
+        // Seta os valores finais na entidade
+        venda.setValorBruto(valorBruto); // Certifique-se que criou esse campo em Venda.java
+        venda.setValorTotal(valorLiquido); // O cliente paga o líquido
+
+        Venda vendaSalva = vendaRepository.save(venda);
+
+
+        for (VendaDesconto vd : descontosParaSalvar) {
+            vd.setVenda(vendaSalva);
+            vendaDescontoRepository.save(vd);
+        }
+
+        BigDecimal valorPago = dto.getValorPagoCliente();
+        BigDecimal troco = BigDecimal.ZERO;
+
+        // Se não informou valor (ex: cartão), assume pagamento exato
+        if (valorPago == null || valorPago.compareTo(BigDecimal.ZERO) == 0) {
+            valorPago = vendaSalva.getValorTotal();
+        }
+
+        // Validação básica
+        if (valorPago.compareTo(vendaSalva.getValorTotal()) < 0) {
+            throw new RuntimeException("Valor pago insuficiente. Total: " + vendaSalva.getValorTotal() + ", Pago: " + valorPago);
+        }
+
+        // Se for DINHEIRO, calcula troco. Se for PIX/CARTÃO, troco é zero.
+        if (vendaSalva.getMetodoPagamento() == MetodoPagamento.DINHEIRO) {
+            troco = valorPago.subtract(vendaSalva.getValorTotal());
+        } else {
+            valorPago = vendaSalva.getValorTotal(); // Ajusta para não registrar pagamento maior que a venda em cartão
+        }
+
+        // Salva o detalhe do pagamento
+        VendaPagamento pagamento = VendaPagamento.builder()
+                .venda(vendaSalva)
+                .caixa(caixaAberto)
+                .formaPagamento(vendaSalva.getMetodoPagamento())
+                .valorPago(valorPago)
+                .trocoGerado(troco)
+                .valorLiquido(vendaSalva.getValorTotal())
+                .build();
+
+        vendaPagamentoRepository.save(pagamento);
+
+        // Atualiza o troco na Venda (para consulta rápida)
+        vendaSalva.setTrocoTotal(troco);
+        vendaRepository.save(vendaSalva);
+
+        return toResponseDTO(vendaSalva);
     }
 
     @Transactional

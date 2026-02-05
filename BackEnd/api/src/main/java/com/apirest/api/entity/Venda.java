@@ -47,11 +47,19 @@ public class Venda {
     @NotEmpty(message = "A venda deve conter ao menos um item.")
     private List<VendaItem> itens;
 
+    // Valor bruto da venda (sem descontos)
+    @Column(name = "valor_bruto", precision = 12, scale = 2)
+    private BigDecimal valorBruto;
+
     // Valor total da venda
     @DecimalMin(value = "0.01", inclusive = true, message = "O valor total deve ser maior que zero.")
     @Digits(integer = 10, fraction = 2, message = "O valor total deve ter no máximo 10 dígitos inteiros e 2 decimais.")
     @Column(name = "valor_total", nullable = false, precision = 12, scale = 2)
     private BigDecimal valorTotal;
+
+    // Valor do desconto aplicado na venda
+    @Column(name = "troco_total", precision = 12, scale = 2)
+    private BigDecimal trocoTotal;
 
     // Data e hora da venda
     @Column(name = "data_venda", nullable = false, updatable = false)
