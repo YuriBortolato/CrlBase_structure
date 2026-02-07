@@ -35,6 +35,9 @@ public class VendaService {
 
     private final VendaPagamentoRepository vendaPagamentoRepository;
 
+    private final ContaReceberRepository contaReceberRepository;
+    private final ParcelaRepository parcelaRepository;
+
     private static final Set<String> PERMISSAO_GERENCIAR_VENDA = Set.of("DONO", "GERENTE", "LIDER_VENDA", "ADMIN");
 
     @Transactional
@@ -209,6 +212,63 @@ public class VendaService {
         // Atualiza o troco na Venda (para consulta rápida)
         vendaSalva.setTrocoTotal(troco);
         vendaRepository.save(vendaSalva);
+
+        // Se for CREDIÁRIO, gera a conta a receber e as parcelas
+        if (vendaSalva.getMetodoPagamento() == MetodoPagamento.CREDIARIO) {
+
+            // Valida se informou parcelas
+            if (dto.getNumeroParcelas() == null || dto.getNumeroParcelas() < 1) {
+                throw new RuntimeException("Para venda no CREDIÁRIO, é obrigatório informar o número de parcelas.");
+            }
+
+            int qtdParcelas = dto.getNumeroParcelas();
+            BigDecimal valorTotalCrediario = vendaSalva.getValorTotal();
+
+            // Cria a Conta a Receber (Cabeçalho da Dívida)
+            ContaReceber conta = ContaReceber.builder()
+                    .venda(vendaSalva)
+                    .cliente(cliente)
+                    .valorTotal(valorTotalCrediario)
+                    .quantidadeParcelas(qtdParcelas)
+                    .status(ContaReceber.StatusConta.ABERTA)
+                    .dataCriacao(LocalDateTime.now(ZoneId.of("America/Sao_Paulo")))
+                    .build();
+
+            conta = contaReceberRepository.save(conta);
+
+            // Gera as Parcelas
+            /* Cálculo das parcelas: Divide o valor total pelo número de parcelas,
+            arredondando para baixo. A diferença de centavos é adicionada
+             à primeira parcela para garantir que o total seja exato.*/
+            BigDecimal valorBaseParcela = valorTotalCrediario.divide(BigDecimal.valueOf(qtdParcelas), 2, java.math.RoundingMode.DOWN);
+            BigDecimal totalParcelado = valorBaseParcela.multiply(BigDecimal.valueOf(qtdParcelas));
+            BigDecimal diferencaCentavos = valorTotalCrediario.subtract(totalParcelado);
+
+            // Data base para vencimento: hoje + 30 dias para a 1ª parcela, depois incrementa 30 dias para cada parcela subsequente
+            java.time.LocalDate dataBaseVencimento = java.time.LocalDate.now();
+
+            for (int i = 1; i <= qtdParcelas; i++) {
+                BigDecimal valorParcela = valorBaseParcela;
+
+                // Soma os centavos que sobraram na 1ª parcela
+                if (i == 1) {
+                    valorParcela = valorParcela.add(diferencaCentavos);
+                }
+
+                Parcela parcela = Parcela.builder()
+                        .contaReceber(conta)
+                        .numeroParcela(i)
+                        .valorOriginal(valorParcela)
+                        .valorPago(BigDecimal.ZERO)
+                        .status(Parcela.StatusParcela.PENDENTE)
+                        .dataVencimento(dataBaseVencimento.plusDays(30L * i)) // Vence em 30, 60, 90 dias...
+                        .build();
+
+                parcelaRepository.save(parcela);
+            }
+
+            log.info("Crediário gerado com sucesso: Conta ID {} em {}x", conta.getId(), qtdParcelas);
+        }
 
         return toResponseDTO(vendaSalva);
     }

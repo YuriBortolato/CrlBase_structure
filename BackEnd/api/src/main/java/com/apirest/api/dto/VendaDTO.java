@@ -35,6 +35,10 @@ public class VendaDTO {
     @DecimalMin(value = "0.00", message = "O desconto manual não pode ser negativo")
     private BigDecimal descontoManual;
 
+    // Número de parcelas para pagamento parcelado (usado apenas se metodoPagamento == CREDIARIO)
+    @Min(value = 1, message = "O número de parcelas deve ser pelo menos 1")
+    private Integer numeroParcelas;
+
     // Valor pago pelo cliente
     @DecimalMin(value = "0.00", message = "O valor pago não pode ser negativo")
     private BigDecimal valorPagoCliente; // Valor pago fisico pelo cliente
