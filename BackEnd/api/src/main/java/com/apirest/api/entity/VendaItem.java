@@ -49,8 +49,4 @@ public class VendaItem {
     @Digits(integer = 10, fraction = 2)
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal subtotal;
-
-    // Usado apenas se metodoPagamento == CREDIARIO
-    @Min(value = 1, message = "O número de parcelas deve ser pelo menos 1")
-    private Integer numeroParcelas;
 }
