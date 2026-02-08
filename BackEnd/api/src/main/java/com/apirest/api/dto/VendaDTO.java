@@ -42,4 +42,7 @@ public class VendaDTO {
     // Valor pago pelo cliente
     @DecimalMin(value = "0.00", message = "O valor pago não pode ser negativo")
     private BigDecimal valorPagoCliente; // Valor pago fisico pelo cliente
+
+    private String pin; // A senha numérica (Ex: "1234")
+    private String assinaturaBase64;
 }

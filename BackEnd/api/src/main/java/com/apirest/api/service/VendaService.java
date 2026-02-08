@@ -5,6 +5,7 @@ import com.apirest.api.entity.*;
 import com.apirest.api.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.apirest.api.entity.VendaPagamento;
@@ -35,8 +36,11 @@ public class VendaService {
 
     private final VendaPagamentoRepository vendaPagamentoRepository;
 
-    private final ContaReceberRepository contaReceberRepository;
     private final ParcelaRepository parcelaRepository;
+
+    private final PasswordEncoder passwordEncoder; // Para validar o PIN
+    private final VendaEvidenciaRepository vendaEvidenciaRepository; // Para salvar a assinatura
+    private final ContaReceberRepository contaReceberRepository; // Para checar a dívida
 
     private static final Set<String> PERMISSAO_GERENCIAR_VENDA = Set.of("DONO", "GERENTE", "LIDER_VENDA", "ADMIN");
 
@@ -213,18 +217,57 @@ public class VendaService {
         vendaSalva.setTrocoTotal(troco);
         vendaRepository.save(vendaSalva);
 
-        // Se for CREDIÁRIO, gera a conta a receber e as parcelas
         if (vendaSalva.getMetodoPagamento() == MetodoPagamento.CREDIARIO) {
 
-            // Valida se informou parcelas
-            if (dto.getNumeroParcelas() == null || dto.getNumeroParcelas() < 1) {
-                throw new RuntimeException("Para venda no CREDIÁRIO, é obrigatório informar o número de parcelas.");
+            // 1. REGRA: Só funcionário pode comprar no crediário
+            // Verificamos se o Cliente tem vínculo com um Funcionário (campo funcionarioOrigem)
+            if (cliente.getFuncionarioOrigem() == null) {
+                throw new RuntimeException("BLOQUEIO: Venda no Crediário permitida apenas para Funcionários (Cliente não vinculado).");
+            }
+            Funcionario funcionarioComprador = cliente.getFuncionarioOrigem();
+
+            // 2. REGRA: Validar PIN (Assinatura Digital)
+            if (dto.getPin() == null || dto.getPin().isBlank()) {
+                throw new RuntimeException("BLOQUEIO: O PIN é obrigatório para vendas no Crediário.");
+            }
+            // O PIN no banco já deve estar Hasheado (BCrypt). O match verifica se bate.
+            if (!passwordEncoder.matches(dto.getPin(), funcionarioComprador.getPinHash())) {
+                throw new RuntimeException("BLOQUEIO: PIN incorreto. Venda não autorizada.");
             }
 
-            int qtdParcelas = dto.getNumeroParcelas();
+            // 3. REGRA: Validar Limite de Crédito
+            BigDecimal limiteDisponivel = cliente.getLimiteCredito();
+            if (limiteDisponivel == null) limiteDisponivel = BigDecimal.ZERO;
+
+            BigDecimal dividaAtual = contaReceberRepository.somarDividaAberta(cliente.getIdCliente());
+            if (dividaAtual == null) dividaAtual = BigDecimal.ZERO;
+
+            BigDecimal novaDivida = dividaAtual.add(vendaSalva.getValorTotal());
+
+            if (novaDivida.compareTo(limiteDisponivel) > 0) {
+                throw new RuntimeException(String.format("BLOQUEIO: Limite Excedido. Limite: R$ %s | Dívida Atual: R$ %s | Tentativa: R$ %s",
+                        limiteDisponivel, dividaAtual, vendaSalva.getValorTotal()));
+            }
+
+            // 4. REGRA: Salvar Evidência (Assinatura)
+            if (dto.getAssinaturaBase64() != null && !dto.getAssinaturaBase64().isBlank()) {
+                VendaEvidencia evidencia = VendaEvidencia.builder()
+                        .venda(vendaSalva)
+                        .assinaturaBase64(dto.getAssinaturaBase64())
+                        .dataRegistro(LocalDateTime.now())
+                        .build();
+                vendaEvidenciaRepository.save(evidencia);
+            } else {
+                throw new RuntimeException("BLOQUEIO: Assinatura obrigatória para Crediário.");
+            }
+
+            // 5. REGRA: Não gera comissão (Venda interna)
+            // Se tiver campo de comissão, zerar aqui
+
+            // --- GERAÇÃO DAS PARCELAS ---
+            int qtdParcelas = (dto.getNumeroParcelas() != null) ? dto.getNumeroParcelas() : 1;
             BigDecimal valorTotalCrediario = vendaSalva.getValorTotal();
 
-            // Cria a Conta a Receber (Cabeçalho da Dívida)
             ContaReceber conta = ContaReceber.builder()
                     .venda(vendaSalva)
                     .cliente(cliente)
@@ -233,27 +276,16 @@ public class VendaService {
                     .status(ContaReceber.StatusConta.ABERTA)
                     .dataCriacao(LocalDateTime.now(ZoneId.of("America/Sao_Paulo")))
                     .build();
-
             conta = contaReceberRepository.save(conta);
 
-            // Gera as Parcelas
-            /* Cálculo das parcelas: Divide o valor total pelo número de parcelas,
-            arredondando para baixo. A diferença de centavos é adicionada
-             à primeira parcela para garantir que o total seja exato.*/
             BigDecimal valorBaseParcela = valorTotalCrediario.divide(BigDecimal.valueOf(qtdParcelas), 2, java.math.RoundingMode.DOWN);
             BigDecimal totalParcelado = valorBaseParcela.multiply(BigDecimal.valueOf(qtdParcelas));
             BigDecimal diferencaCentavos = valorTotalCrediario.subtract(totalParcelado);
-
-            // Data base para vencimento: hoje + 30 dias para a 1ª parcela, depois incrementa 30 dias para cada parcela subsequente
             java.time.LocalDate dataBaseVencimento = java.time.LocalDate.now();
 
             for (int i = 1; i <= qtdParcelas; i++) {
                 BigDecimal valorParcela = valorBaseParcela;
-
-                // Soma os centavos que sobraram na 1ª parcela
-                if (i == 1) {
-                    valorParcela = valorParcela.add(diferencaCentavos);
-                }
+                if (i == 1) valorParcela = valorParcela.add(diferencaCentavos);
 
                 Parcela parcela = Parcela.builder()
                         .contaReceber(conta)
@@ -261,13 +293,11 @@ public class VendaService {
                         .valorOriginal(valorParcela)
                         .valorPago(BigDecimal.ZERO)
                         .status(Parcela.StatusParcela.PENDENTE)
-                        .dataVencimento(dataBaseVencimento.plusDays(30L * i)) // Vence em 30, 60, 90 dias...
+                        .dataVencimento(dataBaseVencimento.plusDays(30L * i))
                         .build();
-
                 parcelaRepository.save(parcela);
             }
-
-            log.info("Crediário gerado com sucesso: Conta ID {} em {}x", conta.getId(), qtdParcelas);
+            log.info("Crediário Funcionário autorizado: Conta ID {}", conta.getId());
         }
 
         return toResponseDTO(vendaSalva);

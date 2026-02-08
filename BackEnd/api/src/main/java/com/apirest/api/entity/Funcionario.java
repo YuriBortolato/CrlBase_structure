@@ -5,6 +5,7 @@ import jakarta.validation.constraints.*;
 import lombok.*;
 import org.hibernate.validator.constraints.br.CPF;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 
 @Entity
@@ -79,4 +80,16 @@ public class Funcionario {
     @Builder.Default
     @Column(nullable = false)
     private boolean ativo = true;
+
+    // PIN para acesso a funcionalidades específicas (ex: caixa, estoque)
+    @Column(name = "pin_hash")
+    private String pinHash; // PIN criptografado
+
+    // Limite de crédito para cargos que recebem crediário
+    @Column(name = "limite_crediario", precision = 12, scale = 2)
+    private BigDecimal limiteCrediario;
+
+    // Acúmulo de comissão para cargos que recebem comissão
+    @Column(name = "valor_comissao_acumulado", precision = 12, scale = 2)
+    private BigDecimal valorComissaoAcumulado;
 }
