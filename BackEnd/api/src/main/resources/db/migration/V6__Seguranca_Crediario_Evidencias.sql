@@ -20,3 +20,7 @@ ADD COLUMN valor_comissao_acumulado numeric(12,2) DEFAULT 0.00; -- Saldo de comi
 -- Atualizar Cliente (Limite para Crediário Externo)
 ALTER TABLE public.clientes
 ADD COLUMN limite_credito numeric(12,2) DEFAULT 0.00;
+
+// Atualizar Venda (Valor da Comissão para o Funcionário)
+ALTER TABLE public.venda
+ADD COLUMN valor_comissao numeric(12,2) DEFAULT 0.00;

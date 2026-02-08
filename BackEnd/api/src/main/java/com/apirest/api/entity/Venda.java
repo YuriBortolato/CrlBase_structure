@@ -82,6 +82,9 @@ public class Venda {
     @Column(length = 255)
     private String observacoes;
 
+    @Column(name = "valor_comissao", precision = 12, scale = 2)
+    private BigDecimal valorComissao; // Quanto o vendedor ganhou nessa venda
+
     // Define a data da venda antes de persistir
     @PrePersist
     public void prePersist() {

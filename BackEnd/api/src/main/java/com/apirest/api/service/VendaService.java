@@ -173,6 +173,10 @@ public class VendaService {
         venda.setValorBruto(valorBruto); // Certifique-se que criou esse campo em Venda.java
         venda.setValorTotal(valorLiquido); // O cliente paga o líquido
 
+        // Calcula comissão (Exemplo: 5% do valor líquido para cargos com comissão)
+        BigDecimal percentualComissao = new BigDecimal("0.05"); // 5%
+        venda.setValorComissao(valorLiquido.multiply(percentualComissao));
+
         Venda vendaSalva = vendaRepository.save(venda);
 
 
@@ -219,14 +223,14 @@ public class VendaService {
 
         if (vendaSalva.getMetodoPagamento() == MetodoPagamento.CREDIARIO) {
 
-            // 1. REGRA: Só funcionário pode comprar no crediário
+            // Só funcionário pode comprar no crediário
             // Verificamos se o Cliente tem vínculo com um Funcionário (campo funcionarioOrigem)
             if (cliente.getFuncionarioOrigem() == null) {
                 throw new RuntimeException("BLOQUEIO: Venda no Crediário permitida apenas para Funcionários (Cliente não vinculado).");
             }
             Funcionario funcionarioComprador = cliente.getFuncionarioOrigem();
 
-            // 2. REGRA: Validar PIN (Assinatura Digital)
+            // Validar PIN (Assinatura Digital)
             if (dto.getPin() == null || dto.getPin().isBlank()) {
                 throw new RuntimeException("BLOQUEIO: O PIN é obrigatório para vendas no Crediário.");
             }
@@ -235,7 +239,7 @@ public class VendaService {
                 throw new RuntimeException("BLOQUEIO: PIN incorreto. Venda não autorizada.");
             }
 
-            // 3. REGRA: Validar Limite de Crédito
+            //  Validar Limite de Crédito
             BigDecimal limiteDisponivel = cliente.getLimiteCredito();
             if (limiteDisponivel == null) limiteDisponivel = BigDecimal.ZERO;
 
@@ -249,7 +253,7 @@ public class VendaService {
                         limiteDisponivel, dividaAtual, vendaSalva.getValorTotal()));
             }
 
-            // 4. REGRA: Salvar Evidência (Assinatura)
+            // Salvar Evidência (Assinatura)
             if (dto.getAssinaturaBase64() != null && !dto.getAssinaturaBase64().isBlank()) {
                 VendaEvidencia evidencia = VendaEvidencia.builder()
                         .venda(vendaSalva)
@@ -261,8 +265,8 @@ public class VendaService {
                 throw new RuntimeException("BLOQUEIO: Assinatura obrigatória para Crediário.");
             }
 
-            // 5. REGRA: Não gera comissão (Venda interna)
-            // Se tiver campo de comissão, zerar aqui
+            // Não gera comissão (Venda interna)
+            vendaSalva.setValorComissao(BigDecimal.ZERO);
 
             // --- GERAÇÃO DAS PARCELAS ---
             int qtdParcelas = (dto.getNumeroParcelas() != null) ? dto.getNumeroParcelas() : 1;
