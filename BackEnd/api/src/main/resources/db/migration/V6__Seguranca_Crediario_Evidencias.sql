@@ -16,6 +16,7 @@ ALTER TABLE public.funcionarios
 ADD COLUMN pin_hash character varying(255), -- Senha numérica criptografada (4 a 6 dígitos)
 ADD COLUMN limite_crediario numeric(12,2) DEFAULT 0.00, -- Limite para compra interna
 ADD COLUMN valor_comissao_acumulado numeric(12,2) DEFAULT 0.00; -- Saldo de comissão a receber
+ADD COLUMN status_crediario character varying(20) DEFAULT 'ATIVO'; -- ATIVO ou BLOQUEADO
 
 -- Atualizar Cliente (Limite para Crediário Externo)
 ALTER TABLE public.clientes

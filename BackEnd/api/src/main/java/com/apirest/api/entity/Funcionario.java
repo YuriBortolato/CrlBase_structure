@@ -92,4 +92,13 @@ public class Funcionario {
     // Acúmulo de comissão para cargos que recebem comissão
     @Column(name = "valor_comissao_acumulado", precision = 12, scale = 2)
     private BigDecimal valorComissaoAcumulado;
+
+    // Status do crediário (ativo ou bloqueado)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status_crediario")
+    private StatusCrediario statusCrediario;
+
+    public enum StatusCrediario {
+        ATIVO, BLOQUEADO
+    }
 }

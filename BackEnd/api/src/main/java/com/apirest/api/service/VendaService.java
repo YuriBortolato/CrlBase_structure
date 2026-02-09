@@ -239,6 +239,17 @@ public class VendaService {
                 throw new RuntimeException("BLOQUEIO: PIN incorreto. Venda não autorizada.");
             }
 
+            if (funcionarioComprador.getStatusCrediario() == Funcionario.StatusCrediario.BLOQUEADO) {
+                throw new RuntimeException("BLOQUEIO: Funcionário bloqueado manualmente pelo RH para compras no crediário.");
+            }
+
+            // Bloqueio por Atraso (Inadimplência)
+            // Verificamos se existem parcelas vencidas em aberto para este cliente. Se sim, bloqueamos a venda até que regularize.
+            boolean temAtraso = parcelaRepository.existeParcelaAtrasada(cliente.getIdCliente(), java.time.LocalDate.now());
+            if (temAtraso) {
+                throw new RuntimeException("BLOQUEIO: Existem parcelas vencidas em aberto. Regularize para comprar novamente.");
+            }
+
             //  Validar Limite de Crédito
             BigDecimal limiteDisponivel = cliente.getLimiteCredito();
             if (limiteDisponivel == null) limiteDisponivel = BigDecimal.ZERO;

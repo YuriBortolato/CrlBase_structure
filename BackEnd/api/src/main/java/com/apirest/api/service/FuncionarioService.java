@@ -309,6 +309,18 @@ public class FuncionarioService {
     }
 
     @Transactional
+    public void atualizarPin(Long id, String novoPin) {
+        // Busca o funcionário pelo ID
+        Funcionario f = repository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Funcionário não encontrado."));
+
+        // Criptografa o novo PIN antes de salvar
+        f.setPinHash(passwordEncoder.encode(novoPin));
+
+        repository.save(f);
+    }
+
+    @Transactional
     public void deletar(Long id) {
         log.info("Desativando funcionário ID: {}", id);
         Funcionario funcionario = buscarPorId(id);
