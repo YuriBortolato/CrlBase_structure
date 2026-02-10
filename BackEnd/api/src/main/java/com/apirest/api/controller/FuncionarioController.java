@@ -56,6 +56,19 @@ public class FuncionarioController {
         return ResponseEntity.noContent().build();
     }
 
+    // Rota dedicada para alterar o limite
+    @PatchMapping("/{id}/limite")
+    public ResponseEntity<Void> atualizarLimite(@PathVariable Long id, @RequestBody Map<String, java.math.BigDecimal> payload) {
+        java.math.BigDecimal novoLimite = payload.get("limite");
+
+        if (novoLimite == null || novoLimite.compareTo(java.math.BigDecimal.ZERO) < 0) {
+            throw new RuntimeException("O limite deve ser um valor positivo.");
+        }
+
+        service.atualizarLimiteCredito(id, novoLimite);
+        return ResponseEntity.noContent().build();
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deletar(@PathVariable Long id) {
         service.deletar(id);

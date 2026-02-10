@@ -342,7 +342,28 @@ public class FuncionarioService {
         log.info("Funcionário ID {} desativado com sucesso.", id);
     }
 
-    //
+    // Atualiza o limite de crédito do funcionário e do cliente espelho
+    @Transactional
+    public void atualizarLimiteCredito(Long id, java.math.BigDecimal novoLimite) {
+        log.info("Atualizando limite de crédito do funcionário ID: {} para R$ {}", id, novoLimite);
+
+        // Atualiza na tabela de Funcionários
+        Funcionario funcionario = repository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Funcionário não encontrado."));
+
+        funcionario.setLimiteCrediario(novoLimite);
+        repository.save(funcionario);
+
+        // Atualiza na tabela de Clientes (Para passar na validação da Venda)
+        // Buscamos o cliente pelo CPF do funcionário (Cliente Espelho)
+        Cliente clienteEspelho = clienteRepository.findByCpf(funcionario.getCpf())
+                .orElseThrow(() -> new RuntimeException("Erro crítico: Cliente espelho não encontrado para este funcionário."));
+
+        clienteEspelho.setLimiteCredito(novoLimite);
+        clienteRepository.save(clienteEspelho);
+    }
+
+    // Converte entidade Funcionario para FuncionarioResponseDTO
     private FuncionarioResponseDTO toResponseDTO(Funcionario f) {
         return new FuncionarioResponseDTO(
                 f.getIdFuncionario(),
