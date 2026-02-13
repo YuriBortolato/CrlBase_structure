@@ -40,6 +40,8 @@ public class ContaReceberService {
 
     @Transactional
     public void pagarParcela(PagamentoParcelaDTO dto) {
+        System.out.println("--- INICIANDO PROCESSO DE PAGAMENTO ---");
+
         // Validar Parcela
         Parcela parcela = parcelaRepository.findById(dto.getIdParcela())
                 .orElseThrow(() -> new RuntimeException("Parcela não encontrada com ID: " + dto.getIdParcela()));
@@ -55,6 +57,16 @@ public class ContaReceberService {
         // Busca o caixa ABERTO deste funcionário
         Caixa caixa = caixaRepository.findByFuncionarioAndStatus(recebedor, StatusCaixa.ABERTO)
                 .orElseThrow(() -> new RuntimeException("Operação negada: O funcionário " + recebedor.getNomeCompleto() + " não possui um caixa aberto."));
+
+        // ATUALIZAR A PARCELA COM O PAGAMENTO
+        System.out.println("Atualizando status da parcela ID: " + parcela.getId());
+
+        parcela.setValorPago(dto.getValorPago());
+        parcela.setDataPagamento(LocalDateTime.now());
+        parcela.setStatus(Parcela.StatusParcela.PAGA);
+
+        // FORÇA O BANCO A GRAVAR AGORA
+        parcelaRepository.saveAndFlush(parcela);
 
         // Atualizar a Parcela
         // Lançar Entrada no Caixa (Movimentação)
