@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -58,14 +59,25 @@ public class ContaReceberService {
         Caixa caixa = caixaRepository.findByFuncionarioAndStatus(recebedor, StatusCaixa.ABERTO)
                 .orElseThrow(() -> new RuntimeException("Operação negada: O funcionário " + recebedor.getNomeCompleto() + " não possui um caixa aberto."));
 
-        // ATUALIZAR A PARCELA COM O PAGAMENTO
-        System.out.println("Atualizando status da parcela ID: " + parcela.getId());
 
-        parcela.setValorPago(dto.getValorPago());
+        //LÓGICA DE PAGAMENTO PARCIAL E BAIXA
+        BigDecimal valorJaPago = parcela.getValorPago() != null ? parcela.getValorPago() : BigDecimal.ZERO;
+        BigDecimal novoTotalPago = valorJaPago.add(dto.getValorPago());
+
+        // Atualiza o valor pago acumulado
+        parcela.setValorPago(novoTotalPago);
         parcela.setDataPagamento(LocalDateTime.now());
-        parcela.setStatus(Parcela.StatusParcela.PAGA);
 
-        // FORÇA O BANCO A GRAVAR AGORA
+        // Verifica se quitou o valor original
+        if (novoTotalPago.compareTo(parcela.getValorOriginal()) >= 0) {
+            System.out.println("Pagamento total atingido. Baixando parcela ID: " + parcela.getId());
+            parcela.setStatus(Parcela.StatusParcela.PAGA);
+        } else {
+            System.out.println("Pagamento PARCIAL. Resta pagar: " + parcela.getValorOriginal().subtract(novoTotalPago));
+            // Mantém status PENDENTE
+        }
+
+        // Persiste a alteração
         parcelaRepository.saveAndFlush(parcela);
 
         // Atualizar a Parcela
