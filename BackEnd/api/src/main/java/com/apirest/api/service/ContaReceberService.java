@@ -41,52 +41,89 @@ public class ContaReceberService {
 
     @Transactional
     public void pagarParcela(PagamentoParcelaDTO dto) {
-        System.out.println("--- INICIANDO PROCESSO DE PAGAMENTO ---");
+        System.out.println("--- INICIANDO PAGAMENTO EM CASCATA ---");
 
-        // Validar Parcela
-        Parcela parcela = parcelaRepository.findById(dto.getIdParcela())
-                .orElseThrow(() -> new RuntimeException("Parcela não encontrada com ID: " + dto.getIdParcela()));
+        // Buscar a parcela inicial e a conta mãe
+        Parcela parcelaInicial = parcelaRepository.findById(dto.getIdParcela())
+                .orElseThrow(() -> new RuntimeException("Parcela não encontrada"));
 
-        if (parcela.getStatus() == Parcela.StatusParcela.PAGA) {
-            throw new RuntimeException("Esta parcela já consta como PAGA no sistema.");
-        }
+        ContaReceber conta = parcelaInicial.getContaReceber();
 
-        // Validar Caixa Aberto (O dinheiro tem que entrar em algum lugar)
+        // Validar Caixa Aberto
         Funcionario recebedor = funcionarioRepository.findById(dto.getIdFuncionarioRecebedor())
                 .orElseThrow(() -> new RuntimeException("Funcionário recebedor não encontrado"));
 
-        // Busca o caixa ABERTO deste funcionário
         Caixa caixa = caixaRepository.findByFuncionarioAndStatus(recebedor, StatusCaixa.ABERTO)
                 .orElseThrow(() -> new RuntimeException("Operação negada: O funcionário " + recebedor.getNomeCompleto() + " não possui um caixa aberto."));
 
+        // Buscar TODAS as parcelas dessa conta, ordenadas pelo número (1, 2, 3...)
+        List<Parcela> todasParcelas = conta.getParcelas().stream()
+                .sorted((p1, p2) -> p1.getNumeroParcela().compareTo(p2.getNumeroParcela()))
+                .collect(Collectors.toList());
 
-        //LÓGICA DE PAGAMENTO PARCIAL E BAIXA
-        BigDecimal valorJaPago = parcela.getValorPago() != null ? parcela.getValorPago() : BigDecimal.ZERO;
-        BigDecimal novoTotalPago = valorJaPago.add(dto.getValorPago());
-
-        // Atualiza o valor pago acumulado
-        parcela.setValorPago(novoTotalPago);
-        parcela.setDataPagamento(LocalDateTime.now());
-
-        // Verifica se quitou o valor original
-        if (novoTotalPago.compareTo(parcela.getValorOriginal()) >= 0) {
-            System.out.println("Pagamento total atingido. Baixando parcela ID: " + parcela.getId());
-            parcela.setStatus(Parcela.StatusParcela.PAGA);
-        } else {
-            System.out.println("Pagamento PARCIAL. Resta pagar: " + parcela.getValorOriginal().subtract(novoTotalPago));
-            // Mantém status PENDENTE
+        // Calcular Dívida Total Restante da Conta
+        BigDecimal dividaTotal = BigDecimal.ZERO;
+        for (Parcela p : todasParcelas) {
+            BigDecimal saldoParcela = p.getValorOriginal().subtract(p.getValorPago() != null ? p.getValorPago() : BigDecimal.ZERO);
+            if (saldoParcela.compareTo(BigDecimal.ZERO) > 0) {
+                dividaTotal = dividaTotal.add(saldoParcela);
+            }
         }
 
-        // Persiste a alteração
-        parcelaRepository.saveAndFlush(parcela);
+        // Validação: Não aceitar valor maior que a dívida total (criar crédito somente com tabela pra isso)
+        if (dto.getValorPago().compareTo(dividaTotal) > 0) {
+            throw new RuntimeException("Valor excede a dívida total da venda! Valor máximo aceito: R$ " + dividaTotal);
+        }
 
-        // Atualizar a Parcela
-        // Lançar Entrada no Caixa (Movimentação)
-        String motivoLancamento = String.format("Recebimento Crediário | Parcela %d de %d | Cliente: %s | Pgto: %s",
-                parcela.getNumeroParcela(),
-                parcela.getContaReceber().getQuantidadeParcelas(),
-                parcela.getContaReceber().getCliente().getNomeCompleto(),
-                dto.getMetodoPagamento());
+        // LÓGICA DA CASCATA (WATERFALL)
+        BigDecimal valorDisponivel = dto.getValorPago();
+        StringBuilder historicoPagamento = new StringBuilder();
+
+        for (Parcela p : todasParcelas) {
+            // Se já não temos mais dinheiro para alocar, paramos o processo
+            if (valorDisponivel.compareTo(BigDecimal.ZERO) <= 0) break;
+
+            // Se a parcela já está paga, pula para a próxima
+            if (p.getStatus() == Parcela.StatusParcela.PAGA) continue;
+
+            // Calcula quanto falta pagar nessa parcela
+            BigDecimal valorJaPagoNesta = p.getValorPago() != null ? p.getValorPago() : BigDecimal.ZERO;
+            BigDecimal saldoDevedorNesta = p.getValorOriginal().subtract(valorJaPagoNesta);
+
+            BigDecimal valorParaAbater;
+
+            if (valorDisponivel.compareTo(saldoDevedorNesta) >= 0) {
+                // O dinheiro é suficiente para quitar esta parcela
+                valorParaAbater = saldoDevedorNesta;
+                p.setStatus(Parcela.StatusParcela.PAGA);
+                historicoPagamento.append("P").append(p.getNumeroParcela()).append("(Quitada) ");
+            } else {
+                // O dinheiro não é suficiente para quitar, mas é suficiente para abater parte dela
+                valorParaAbater = valorDisponivel;
+                // Status continua PENDENTE, mas com valor pago parcial
+                historicoPagamento.append("P").append(p.getNumeroParcela()).append("(Parcial) ");
+            }
+
+            // Atualiza a parcela
+            p.setValorPago(valorJaPagoNesta.add(valorParaAbater));
+            p.setDataPagamento(LocalDateTime.now());
+            parcelaRepository.save(p); // Salva a parcela atualizada
+
+            // Abate o valor disponível
+            valorDisponivel = valorDisponivel.subtract(valorParaAbater);
+        }
+
+        // Força sincronização
+        parcelaRepository.flush();
+
+        // Lançar movimentação no caixa com o valor total pago e histórico detalhado
+        String motivoLancamento = String.format("Recebimento Crediário | Cliente: %s | %s | Total: R$ %s",
+                conta.getCliente().getNomeCompleto(),
+                historicoPagamento.toString(),
+                dto.getValorPago());
+
+        // Garantir que o motivo do lançamento não ultrapasse 255 caracteres (limite do banco)
+        if (motivoLancamento.length() > 255) motivoLancamento = motivoLancamento.substring(0, 255);
 
         CaixaMovimentacao movimentacao = CaixaMovimentacao.builder()
                 .caixa(caixa)
@@ -99,21 +136,21 @@ public class ContaReceberService {
 
         caixaMovimentacaoRepository.save(movimentacao);
 
-
         // Verificar se a Conta inteira foi quitada
-        ContaReceber conta = parcela.getContaReceber();
-
-        // Verifica se todas as parcelas desta conta estão com status PAGA
-        boolean todasPagas = conta.getParcelas().stream()
+        boolean todasPagas = todasParcelas.stream()
                 .allMatch(p -> p.getStatus() == Parcela.StatusParcela.PAGA);
 
         if (todasPagas) {
-            System.out.println("Todas as parcelas pagas. Quitando a conta ID: " + conta.getId());
+            System.out.println("Conta TOTALMENTE QUITADA! ID: " + conta.getId());
             conta.setStatus(ContaReceber.StatusConta.QUITADA);
+            contaReceberRepository.save(conta);
+        } else {
+            // Se ainda restar alguma parcela pendente, garantir que o status da conta seja ABERTA (caso estivesse como QUITADA por algum erro anterior)
+            conta.setStatus(ContaReceber.StatusConta.ABERTA);
             contaReceberRepository.save(conta);
         }
 
-        System.out.println("--- PAGAMENTO FINALIZADO COM SUCESSO ---");
+        System.out.println("--- PAGAMENTO EM CASCATA FINALIZADO ---");
     }
 
     // Buscar detalhes de uma conta específica
