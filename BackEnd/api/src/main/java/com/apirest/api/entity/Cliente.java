@@ -31,7 +31,7 @@ public class Cliente {
     private Funcionario funcionarioOrigem;
 
     // Campos Financeiros
-    @Column(precision = 12, scale = 2)
+    @Column(name = "limite_credito", precision = 12, scale = 2)
     private java.math.BigDecimal limiteCredito; // Quanto ele pode gastar fiado
 
     @Builder.Default

@@ -12,6 +12,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import com.apirest.api.dto.CaixaResponseDTO;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -69,9 +70,11 @@ public class CaixaController {
         CaixaMovimentacao mov = caixaService.adicionarMovimentacao(id, tipo, valor, motivo);
         return ResponseEntity.ok(Map.of("mensagem", "Movimentação registrada com sucesso!", "id", mov.getId()));
     }
-    //
 
-    //
+    @GetMapping("/{id}")
+    public ResponseEntity<CaixaResponseDTO> buscarPorId(@PathVariable Long id) {
+        return ResponseEntity.ok(caixaService.buscarPorId(id));
+    }
 
     @GetMapping("/meu-resumo/{idFuncionario}")
     public ResponseEntity<RelatorioIndividualDTO> meuResumo(@PathVariable Long idFuncionario) {

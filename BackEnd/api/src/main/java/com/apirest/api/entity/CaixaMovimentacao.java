@@ -39,6 +39,6 @@ public class CaixaMovimentacao {
     private Funcionario usuarioAutorizador;
 
     public enum TipoMovimentacao {
-        SANGRIA, SUPRIMENTO
+        SANGRIA, SUPRIMENTO, ENTRADA
     }
 }

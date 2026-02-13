@@ -3,13 +3,14 @@ package com.apirest.api.Config;
 import com.apirest.api.entity.*;
 import com.apirest.api.repository.ClienteRepository;
 import com.apirest.api.repository.FuncionarioRepository;
-import com.apirest.api.repository.PerfilAcessoRepository; // <--- Import Novo
+import com.apirest.api.repository.PerfilAcessoRepository;
 import com.apirest.api.repository.UnidadeRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.math.BigDecimal; // <--- Importante
 import java.time.LocalDate;
 
 @Configuration
@@ -21,10 +22,12 @@ public class DataLoader implements CommandLineRunner  {
     private final PasswordEncoder passwordEncoder;
     private final UnidadeRepository unidadeRepository;
     private final PerfilAcessoRepository perfilAcessoRepository;
+
     @Override
     public void run(String... args) {
         if (funcionarioRepository.count() == 0) {
 
+            // CRIAR UNIDADE MATRIZ
             Unidade matriz;
             if (unidadeRepository.count() == 0) {
                 matriz = Unidade.builder()
@@ -45,6 +48,7 @@ public class DataLoader implements CommandLineRunner  {
                 matriz = unidadeRepository.findAll().get(0);
             }
 
+            // CRIAR PERFIL DE ACESSO
             PerfilAcesso perfilAdmin;
             if (perfilAcessoRepository.count() == 0) {
                 perfilAdmin = PerfilAcesso.builder()
@@ -58,6 +62,7 @@ public class DataLoader implements CommandLineRunner  {
                 perfilAdmin = perfilAcessoRepository.findAll().get(0);
             }
 
+            // DADOS DO ADMIN
             String adminEmail = "pato@sistema.com".toLowerCase();
             String adminCpf = "25285178908";
             String adminLogin = "admin";
@@ -66,6 +71,10 @@ public class DataLoader implements CommandLineRunner  {
             String adminSenhaPlana = "admin123";
             String senhaCripto = passwordEncoder.encode(adminSenhaPlana);
 
+            // PIN PADRÃO: 1234
+            String pinHash = passwordEncoder.encode("1234");
+
+            // CRIAR FUNCIONÁRIO ADMIN (Com PIN e Limites)
             Funcionario admin = Funcionario.builder()
                     .nomeCompleto(adminNome)
                     .login(adminLogin)
@@ -79,11 +88,14 @@ public class DataLoader implements CommandLineRunner  {
                     .unidade(matriz)
                     .perfilAcesso(perfilAdmin)
                     .ativo(true)
+                    .pinHash(pinHash)
+                    .limiteCrediario(new BigDecimal("10000.00")) // Limite alto para testes
+                    .valorComissaoAcumulado(BigDecimal.ZERO)
                     .build();
 
             funcionarioRepository.save(admin);
 
-            // 4. CRIAR O CLIENTE ESPELHO DO ADMIN
+            // CRIAR O CLIENTE ESPELHO DO ADMIN (Com Limite)
             if (!clienteRepository.existsByCpf(adminCpf) && !clienteRepository.existsByEmail(adminEmail)) {
                 Cliente clienteAdmin = Cliente.builder()
                         .nomeCompleto(adminNome)
@@ -96,11 +108,12 @@ public class DataLoader implements CommandLineRunner  {
                         .dataNascimento(LocalDate.of(1990, 1, 1))
                         .funcionarioOrigem(admin)
                         .unidadeOrigem(matriz)
+                        .limiteCredito(new BigDecimal("10000.00"))
                         .build();
 
                 clienteRepository.save(clienteAdmin);
 
-                System.out.println("✅ Usuário administrador criado: login=admin | senha=admin123");
+                System.out.println("✅ Usuário administrador criado: login=admin | senha=admin123 | PIN=1234");
             }
         }
     }
