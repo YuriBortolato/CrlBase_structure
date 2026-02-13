@@ -121,6 +121,13 @@ public class CaixaService {
         return caixaRepository.save(caixa);
     }
 
+    @Transactional(readOnly = true)
+    public CaixaResponseDTO buscarPorId(Long id) {
+        Caixa caixa = caixaRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Caixa não encontrado com ID: " + id));
+        return toResponseDTO(caixa); // Certifique-se de ter o método toResponseDTO
+    }
+
     // OTIMIZAÇÃO: readOnly = true melhora performance de consultas
     @Transactional(readOnly = true)
     public List<Caixa> listarComFiltros(Long idFuncionario, StatusCaixa status, LocalDateTime inicio, LocalDateTime fim) {

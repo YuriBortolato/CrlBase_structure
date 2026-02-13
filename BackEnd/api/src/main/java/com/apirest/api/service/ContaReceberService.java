@@ -43,6 +43,7 @@ public class ContaReceberService {
         // Validar Parcela
         Parcela parcela = parcelaRepository.findById(dto.getIdParcela())
                 .orElseThrow(() -> new RuntimeException("Parcela não encontrada com ID: " + dto.getIdParcela()));
+
         if (parcela.getStatus() == Parcela.StatusParcela.PAGA) {
             throw new RuntimeException("Esta parcela já consta como PAGA no sistema.");
         }
@@ -57,7 +58,7 @@ public class ContaReceberService {
 
         // Atualizar a Parcela
         // Lançar Entrada no Caixa (Movimentação)
-        String motivoLancamento = String.format("Recebimento Crediário | Parc %d/%d | Cli: %s | Via: %s",
+        String motivoLancamento = String.format("Recebimento Crediário | Parcela %d de %d | Cliente: %s | Pgto: %s",
                 parcela.getNumeroParcela(),
                 parcela.getContaReceber().getQuantidadeParcelas(),
                 parcela.getContaReceber().getCliente().getNomeCompleto(),
@@ -77,13 +78,18 @@ public class ContaReceberService {
 
         // Verificar se a Conta inteira foi quitada
         ContaReceber conta = parcela.getContaReceber();
+
+        // Verifica se todas as parcelas desta conta estão com status PAGA
         boolean todasPagas = conta.getParcelas().stream()
                 .allMatch(p -> p.getStatus() == Parcela.StatusParcela.PAGA);
 
         if (todasPagas) {
+            System.out.println("Todas as parcelas pagas. Quitando a conta ID: " + conta.getId());
             conta.setStatus(ContaReceber.StatusConta.QUITADA);
             contaReceberRepository.save(conta);
         }
+
+        System.out.println("--- PAGAMENTO FINALIZADO COM SUCESSO ---");
     }
 
     // Buscar detalhes de uma conta específica
