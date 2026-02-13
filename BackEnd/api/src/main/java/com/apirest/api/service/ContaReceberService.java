@@ -99,6 +99,7 @@ public class ContaReceberService {
     private ContaReceberResponseDTO toResponseDTO(ContaReceber c) {
         List<ParcelaDTO> parcelasDTO = c.getParcelas().stream()
                 .map(p -> ParcelaDTO.builder()
+                        .id(p.getId())
                         .numero(p.getNumeroParcela())
                         .valorOriginal(p.getValorOriginal())
                         .valorPago(p.getValorPago())

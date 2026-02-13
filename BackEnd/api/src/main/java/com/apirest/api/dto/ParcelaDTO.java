@@ -8,6 +8,7 @@ import java.time.LocalDate;
 @Data
 @Builder
 public class ParcelaDTO {
+    private Long id; // ID da parcela
     private Integer numero; // 1, 2, 3...
     private BigDecimal valorOriginal;
     private BigDecimal valorPago;
